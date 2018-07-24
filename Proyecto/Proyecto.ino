@@ -19,7 +19,7 @@ MQ135 gasSensor = MQ135(pinCO2);
 //************************* Niveles de liquido *********************************************
 #define pinNivel1 A3 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A.
 #define pinNivel2 A4 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B.
-//#define pinNivel3 A5 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes C.
+#define pinNivel3 A5 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes C.
 #define pinNivel4 A6 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH+.
 #define pinNivel5 A7 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH-.
 
@@ -57,6 +57,8 @@ const int pinDS18B20 = 28; //Seleccionamos el pin en el que se conectará el sen
 OneWire oneWireObjeto(pinDS18B20);//Inicializamos la clase.
 DallasTemperature sensorDS18B20(&oneWireObjeto);//Inicializamos la clase.
 
+
+//*********************************************************************************** < VARIABLES PARA MEDICIONES 
 //Variables para Luz
 float hsLuzParametro = 0.0;
 
@@ -68,8 +70,13 @@ float PHmin = 0.0;
 float nivelPHmas = 0.0;
 float nivelPHmenos = 0.0;
 
+//Variables para medicion de humedad del aire
+float medicionHumedad = 0.0;
+float humedadMax = 0.0;
+float humedadMin = 0.0;
 
 
+//***********************************************************************************  VARIABLES PARA MEDICIONES >
 
 void setup() {
   if (SALIDASERIAL == 1)
@@ -156,8 +163,8 @@ void loop() {
     Serial.println(n1);
     Serial.println("Nutrientes B: ");
     Serial.println(n2);
- //   Serial.println("Nutrientes C: ");
- //   Serial.println(n3);
+    Serial.println("Nutrientes C: ");
+    Serial.println(n3);
 
     Serial.println("pH+: ");
     Serial.println(n4);
@@ -221,7 +228,7 @@ void loop() {
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
 
-//************************************************************** Encendido y apagado de dispositivos ******************************
+//************************************************************** < FUNCIONES de encendido y apagado de dispositivos 
 
 //BombaEnfriadoPinRELE1
 bool encenderEnfriador()
@@ -295,7 +302,7 @@ bool apagarBombaNutrientesB()
   return true;
 }
 
-/*/NutrienteCpinRELE7
+//NutrienteCpinRELE7
 bool encenderNutrientesC()
 {
   digitalWrite(NutrienteCpinRELE7, HIGH);
@@ -306,7 +313,7 @@ bool apagarBombaNutrientesC()
   digitalWrite(NutrienteCpinRELE7, LOW);
   return true;
 }
-*/
+
 //pHMasPinRELE8
 bool encenderPHmas()
 {
@@ -366,4 +373,4 @@ bool apagarCalentador()
   digitalWrite(CalentadorPinRELE12, LOW);
   return true;
 }
-
+//************************************************************** FUNCIONES de encendido y apagado de dispositivos >
