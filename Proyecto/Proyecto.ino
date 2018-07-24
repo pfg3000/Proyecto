@@ -19,7 +19,7 @@ MQ135 gasSensor = MQ135(pinCO2);
 //************************* Niveles de liquido *********************************************
 #define pinNivel1 A3 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A.
 #define pinNivel2 A4 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B.
-#define pinNivel3 A5 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes C.
+//#define pinNivel3 A5 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes C.
 #define pinNivel4 A6 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH+.
 #define pinNivel5 A7 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH-.
 
@@ -156,8 +156,8 @@ void loop() {
     Serial.println(n1);
     Serial.println("Nutrientes B: ");
     Serial.println(n2);
-    Serial.println("Nutrientes C: ");
-    Serial.println(n3);
+ //   Serial.println("Nutrientes C: ");
+ //   Serial.println(n3);
 
     Serial.println("pH+: ");
     Serial.println(n4);
@@ -295,7 +295,7 @@ bool apagarBombaNutrientesB()
   return true;
 }
 
-//NutrienteCpinRELE7
+/*/NutrienteCpinRELE7
 bool encenderNutrientesC()
 {
   digitalWrite(NutrienteCpinRELE7, HIGH);
@@ -306,7 +306,7 @@ bool apagarBombaNutrientesC()
   digitalWrite(NutrienteCpinRELE7, LOW);
   return true;
 }
-
+*/
 //pHMasPinRELE8
 bool encenderPHmas()
 {
