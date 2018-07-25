@@ -94,8 +94,8 @@ float co2MinParametro = 0.0;
 float medicionNivelNutrienteA = 0.0; //Valor medido
 float medicionNivelNutrienteB = 0.0; //Valor medido
 float medicionCE = 0.0; //Valor medido
-float ceMax = 0.0
-float ceMin = 0.0
+float ceMaxParametro = 0.0
+float ceMinParametro = 0.0
 
 //Variables para la medicion de los niveles de los tanques de agua
 float medicionNivelTanquePrincial = 0.0; //Valor medido
