@@ -63,18 +63,44 @@ DallasTemperature sensorDS18B20(&oneWireObjeto);//Inicializamos la clase.
 float hsLuzParametro = 0.0;
 
 //Variables Medicion de PH
+float medicionPH = 0.0; //Valor medido
 float PhParametro = 0.0;
-float medicionPH = 0.0;
-float PHmax = 0.0;
-float PHmin = 0.0;
-float nivelPHmas = 0.0;
-float nivelPHmenos = 0.0;
+float PHmaxParametro = 0.0;
+float PHminParametro = 0.0;
+float medicionNivelPHmas = 0.0; //Valor medido
+float medicionNivelPHmenos = 0.0; //Valor medido
 
 //Variables para medicion de humedad del aire
-float medicionHumedad = 0.0;
-float humedadMax = 0.0;
-float humedadMin = 0.0;
+float medicionHumedad = 0.0; //Valor medido
+float humedadMaxParametro = 0.0;
+float humedadMinParametro = 0.0;
 
+//Variables para medicion de temperatura del aire
+float medicionTemperaturaAire = 0.0; //Valor medido
+float temperaturaAireMaxParametro = 0.0;
+float temperaturaAireMinParametro = 0.0;
+
+//Variables para medicion de temperatura del agua
+float medicionTemperaturaAgua = 0.0; //Valor medido
+float TempAguaMaxParametro = 0.0;
+float TempAguaMinParametro = 0.0;
+
+//Variables para la medicion de co2
+float medicionCO2 = 0.0; //Valor medido
+float co2MaxParametro = 0.0;
+float co2MinParametro = 0.0;
+
+//Variables para la medicion de ce
+float medicionNivelNutrienteA = 0.0; //Valor medido
+float medicionNivelNutrienteB = 0.0; //Valor medido
+float medicionCE = 0.0; //Valor medido
+float ceMax = 0.0
+float ceMin = 0.0
+
+//Variables para la medicion de los niveles de los tanques de agua
+float medicionNivelTanquePrincial = 0.0; //Valor medido
+float medicionNivelTanqueAguaLimpia = 0.0; //Valor medido
+float medicionNivelTanqueDesechable = 0.0; //Valor medido
 
 //***********************************************************************************  VARIABLES PARA MEDICIONES >
 
