@@ -41,12 +41,12 @@ DHT dht(pinDHT, DHTTYPE); //Se inicia una variable que será usada por Arduino p
 #define BombaVaciadoPinRELE4 33 //Seleccionamos el pin en el que se conectará Bomba de agua Vaciado.
 #define NutrienteApinRELE5 34 //Seleccionamos el pin en el que se conectará Bomba peristáltica Nutriente A.
 #define NutrienteBpinRELE6 35 //Seleccionamos el pin en el que se conectará Bomba peristáltica Nutriente B.
-#define NutrienteCpinRELE7 36 //Seleccionamos el pin en el que se conectará Bomba peristáltica Nutriente C.
-#define pHMasPinRELE8 37 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH+.
-#define pHmenosPinRELE9 38 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH-.
-#define LucesPinRELE10 39 //Seleccionamos el pin en el que se conectará Luces Led.
-#define VentiladoresPinRELE11 40 //Seleccionamos el pin en el que se conectará Ventiladores.
-#define CalentadorPinRELE12 41 //Seleccionamos el pin en el que se conectará Calentador.
+#define pHMasPinRELE7 36 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH+.
+#define pHmenosPinRELE8 37 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH-.
+#define LucesPinRELE9 38 //Seleccionamos el pin en el que se conectará Luces Led.
+#define VentiladoresPinRELE10 39 //Seleccionamos el pin en el que se conectará Ventiladores.
+#define CalentadorPinRELE11 40 //Seleccionamos el pin en el que se conectará Calentador.
+#define pinRELE12 41 //Seleccionamos el pin en el que se conectará **Sin Asignar.
 #define pinRELE13 42 //Seleccionamos el pin en el que se conectará **Sin Asignar.
 #define pinRELE14 43 //Seleccionamos el pin en el que se conectará **Sin Asignar.
 #define pinRELE15 44 //Seleccionamos el pin en el que se conectará **Sin Asignar.
@@ -134,12 +134,12 @@ void setup() {
   pinMode(BombaVaciadoPinRELE4, OUTPUT); //Bomba de agua Vaciado.
   pinMode(NutrienteApinRELE5, OUTPUT); //Bomba peristáltica Nutriente A.
   pinMode(NutrienteBpinRELE6, OUTPUT); //Bomba peristáltica Nutriente B.
-  pinMode(NutrienteCpinRELE7, OUTPUT); //Bomba peristáltica Nutriente C.
-  pinMode(pHMasPinRELE8, OUTPUT); //Bomba peristáltica pH+.
-  pinMode(pHmenosPinRELE9, OUTPUT); //Bomba peristáltica pH-.
-  pinMode(LucesPinRELE10, OUTPUT); //Luces Led.
-  pinMode(VentiladoresPinRELE11, OUTPUT); //Ventiladores.
-  pinMode(CalentadorPinRELE12, OUTPUT); //Calentador.
+  pinMode(pHMasPinRELE7, OUTPUT); //Bomba peristáltica pH+.
+  pinMode(pHmenosPinRELE8, OUTPUT); //Bomba peristáltica pH-.
+  pinMode(LucesPinRELE9, OUTPUT); //Luces Led.
+  pinMode(VentiladoresPinRELE10, OUTPUT); //Ventiladores.
+  pinMode(CalentadorPinRELE11, OUTPUT); //Calentador.
+  pinMode(pinRELE12, OUTPUT); // **Sin Asignar.
   pinMode(pinRELE13, OUTPUT); // **Sin Asignar.
   pinMode(pinRELE14, OUTPUT); // **Sin Asignar.
   pinMode(pinRELE15, OUTPUT); // **Sin Asignar.
