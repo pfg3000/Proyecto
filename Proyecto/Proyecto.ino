@@ -164,43 +164,46 @@ void setup() {
 }
 
 void loop() {
-	medicionHumedad = medirHumedad();
-	medicionTemperaturaAire = medirTemperatura();
+  medicionHumedad = medirHumedad();
+  medicionTemperaturaAire = medirTemperatura();
 
-	medicionNivelNutrienteA = medirNivel(pinNivel1,pinNivel2);
-	medicionNivelNutrienteB = medirNivel(pinNivel3,pinNivel4);
+  medicionNivelNutrienteA = medirNivel(pinNivel1, pinNivel2);
+  medicionNivelNutrienteB = medirNivel(pinNivel3, pinNivel4);
 
-	medicionNivelPHmas = medirNivel(pinNivel5,pinNivel6);
-	medicionNivelPHmenos = medirNivel(pinNivel7,pinNivel8);
+  medicionNivelPHmas = medirNivel(pinNivel5, pinNivel6);
+  medicionNivelPHmenos = medirNivel(pinNivel7, pinNivel8);
 
-	medicionTemperaturaAgua = medirTemperaturaAgua()
+  medicionTemperaturaAgua = medirTemperaturaAgua();
 
-	medicionPH = medirPH();
+  medicionPH = medirPH();
 
-	medicionNivelTanqueAguaLimpia = medirNivel(pinNivel9,pinNivel10);
-	medicionNivelTanqueDesechable = medirNivel(pinNivel11,pinNivel12);
-	medicionNivelTanquePrincial = medirNivel(pinNivel13,pinNivel14);
+  medicionNivelTanqueAguaLimpia = medirNivel(pinNivel9, pinNivel10);
+  medicionNivelTanqueDesechable = medirNivel(pinNivel11, pinNivel12);
+  medicionNivelTanquePrincial = medirNivel(pinNivel13, pinNivel14);
 
-	medicionCO2 = medirCO2();
+  medicionCO2 = medirCO2();
 
-	medicionCE = medirCE();
+  medicionCE = medirCE();
 
   if (SALIDASERIAL == 1)
   {
     //Se imprimen las variables
-    Serial.println("Humedad: ");
-    Serial.println(medicionHumedad);
-    Serial.println("Temperatura: ");
-    Serial.println(medicionTemperaturaAire);
+    Serial.print("Humedad: ");
+    Serial.print(medicionHumedad);
+    Serial.println(" %");
 
-    Serial.println("Nutrientes A: ");
+    Serial.print("Temperatura: ");
+    Serial.print(medicionTemperaturaAire);
+    Serial.println(" ºC");
+
+    Serial.print("Nutrientes A: ");
     Serial.println(medicionNivelNutrienteA);
-    Serial.println("Nutrientes B: ");
+    Serial.print("Nutrientes B: ");
     Serial.println(medicionNivelNutrienteB);
 
-    Serial.println("pH+: ");
+    Serial.print("pH+: ");
     Serial.println(medicionNivelPHmas);
-    Serial.println("pH-: ");
+    Serial.print("pH-: ");
     Serial.println(medicionNivelPHmenos);
 
     Serial.print("Temperatura agua: ");
@@ -208,24 +211,23 @@ void loop() {
     Serial.println(" ºC");
 
     Serial.print("PH: ");
-    Serial.print(medicionPH, 3);
-    Serial.println("");
+    Serial.println(medicionPH, 3);
 
-	Serial.println("Tanque de agua limpia ");
-	Serial.println(medicionNivelTanqueAguaLimpia);
-	Serial.println("Tanque de agua descartada ");
-	Serial.println(medicionNivelTanqueDesechable);
-	Serial.println("Tanque de agua principal ");
-	Serial.println(medicionNivelTanquePrincial);
+    Serial.print("Tanque de agua limpia ");
+    Serial.println(medicionNivelTanqueAguaLimpia);
+    Serial.print("Tanque de agua descartada ");
+    Serial.println(medicionNivelTanqueDesechable);
+    Serial.print("Tanque de agua principal ");
+    Serial.println(medicionNivelTanquePrincial);
 
-    Serial.println("CO2: ");
-    Serial.println(medicionCO2);
-    Serial.print(" ppm");
+    Serial.print("CO2: ");
+    Serial.print(medicionCO2);
+    Serial.println(" ppm");
 
 
-    Serial.println("sensor=");
-    Serial.print(sensorValue);
-    Serial.print("\t output=");
+    //    Serial.println("sensor=");
+    //    Serial.print(sensorValue);
+    Serial.print("CE: ");
     Serial.println(medicionCE);
 
     Serial.println("");
@@ -376,56 +378,56 @@ bool apagarCalentador()
 //************************************************************** < FUNCIONES de medición
 float medirNivel(int PinTrig, int PinEcho)
 {
-	digitalWrite(PinTrig, LOW);
-	delayMicroseconds(2);
+  digitalWrite(PinTrig, LOW);
+  delayMicroseconds(2);
 
-	digitalWrite(PinTrig, HIGH);
-	delayMicroseconds(10);
+  digitalWrite(PinTrig, HIGH);
+  delayMicroseconds(10);
 
-	float tiempo = pulseIn(PinEcho, HIGH);
-	float distancia = (tiempo/2)/29.1;
+  float tiempo = pulseIn(PinEcho, HIGH);
+  float distancia = (tiempo / 2) / 29.1;
 
-	return distancia;
+  return distancia;
 }
 
 float medirHumedad()
 {
-	return dht.readHumidity(); //Se lee la humedad del aire.	
+  return dht.readHumidity(); //Se lee la humedad del aire.
 }
 
 float medirTemperatura()
 {
-	return dht.readTemperature(); //Se lee la temperatura del aire.
+  return dht.readTemperature(); //Se lee la temperatura del aire.
 }
 
 float medirTemperaturaAgua()
 {
-	sensorDS18B20.requestTemperatures();
-	return sensorDS18B20.getTempCByIndex(0);//Se lee la temperatura del agua.	
+  sensorDS18B20.requestTemperatures();
+  return sensorDS18B20.getTempCByIndex(0);//Se lee la temperatura del agua.
 }
 
-float medirPH() 
+float medirPH()
 {
-	int measure = analogRead(pinPH);//Se lee el pH.
-	double voltage = 5 / 1024.0 * measure;
-	return 7 + ((2.5 - voltage) / 0.18);
+  int measure = analogRead(pinPH);//Se lee el pH.
+  double voltage = 5 / 1024.0 * measure;
+  return 7 + ((2.5 - voltage) / 0.18);
 }
 
-float medirCE() 
+float medirCE()
 {
-	int sensorValue = 0;
-	int outputValue = 0;
-	sensorValue = analogRead(pinCE);
-	outputValue = map(sensorValue, 0, 1023, 0, 5000);
-	return analogRead(pinCE) * 5.00 / 1024, 2;
+  int sensorValue = 0;
+  int outputValue = 0;
+  sensorValue = analogRead(pinCE);
+  outputValue = map(sensorValue, 0, 1023, 0, 5000);
+  return analogRead(pinCE) * 5.00 / 1024, 2;
 }
 
-float medirCO2() 
+float medirCO2()
 {
-	return gasSensor.getPPM();//Se mide el co2.
-	//float rzero = gasSensor.getRZero();//Se mide el rzero para calibrar el co2.
-	//    Serial.println(":::::rzero ");
-    //    Serial.println(rzero);
+  return gasSensor.getPPM();//Se mide el co2.
+  //float rzero = gasSensor.getRZero();//Se mide el rzero para calibrar el co2.
+  //    Serial.println(":::::rzero ");
+  //    Serial.println(rzero);
 }
 
 //************************************************************** FUNCIONES de medición >
