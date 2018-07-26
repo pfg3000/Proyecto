@@ -72,7 +72,7 @@ DallasTemperature sensorDS18B20(&oneWireObjeto);//Inicializamos la clase.
 //Variables para Luz
 float hsLuzParametro = 0.0;
 
-//Variables Medicion de PH
+//Variables Medición de PH
 float medicionPH = 0.0; //Valor medido
 float PhParametro = 0.0;
 float PHmaxParametro = 0.0;
@@ -80,34 +80,34 @@ float PHminParametro = 0.0;
 float medicionNivelPHmas = 0.0; //Valor medido
 float medicionNivelPHmenos = 0.0; //Valor medido
 
-//Variables para medicion de humedad del aire
+//Variables para medición de humedad del aire
 float medicionHumedad = 0.0; //Valor medido
 float humedadMaxParametro = 0.0;
 float humedadMinParametro = 0.0;
 
-//Variables para medicion de temperatura del aire
+//Variables para medición de temperatura del aire
 float medicionTemperaturaAire = 0.0; //Valor medido
 float temperaturaAireMaxParametro = 0.0;
 float temperaturaAireMinParametro = 0.0;
 
-//Variables para medicion de temperatura del agua
+//Variables para medición de temperatura del agua
 float medicionTemperaturaAgua = 0.0; //Valor medido
 float TempAguaMaxParametro = 0.0;
 float TempAguaMinParametro = 0.0;
 
-//Variables para la medicion de co2
+//Variables para la medición de co2
 float medicionCO2 = 0.0; //Valor medido
 float co2MaxParametro = 0.0;
 float co2MinParametro = 0.0;
 
-//Variables para la medicion de ce
+//Variables para la medición de ce
 float medicionNivelNutrienteA = 0.0; //Valor medido
 float medicionNivelNutrienteB = 0.0; //Valor medido
 float medicionCE = 0.0; //Valor medido
 float ceMaxParametro = 0.0;
 float ceMinParametro = 0.0;
 
-//Variables para la medicion de los niveles de los tanques de agua
+//Variables para la medición de los niveles de los tanques de agua
 float medicionNivelTanquePrincial = 0.0; //Valor medido
 float medicionNivelTanqueAguaLimpia = 0.0; //Valor medido
 float medicionNivelTanqueDesechable = 0.0; //Valor medido
@@ -164,101 +164,69 @@ void setup() {
 }
 
 void loop() {
-  float h = dht.readHumidity(); //Se lee la humedad del aire.
-  float t = dht.readTemperature(); //Se lee la temperatura del aire.
-//
-//  float n1 = analogRead(pinNivel1);//Se lee nivel de nutrientes A.
-//  float n2 = analogRead(pinNivel2);//Se lee nivel de nutrientes B.
-//  float n3 = analogRead(pinNivel3);//Se lee nivel de nutrientes C.
-//  float n4 = analogRead(pinNivel4);//Se lee nivel de pH+.
-//  float n5 = analogRead(pinNivel5);//Se lee nivel de pH-.
+	medicionHumedad = medirHumedad();
+	medicionTemperaturaAire = medirTemperatura();
 
-  sensorDS18B20.requestTemperatures();
-  float wt = sensorDS18B20.getTempCByIndex(0);//Se lee la temperatura del agua.
+	medicionNivelNutrienteA = medirNivel(pinNivel1,pinNivel2);
+	medicionNivelNutrienteB = medirNivel(pinNivel3,pinNivel4);
 
-  int measure = analogRead(pinPH);//Se lee el pH.
-  double voltage = 5 / 1024.0 * measure;
-  float ph = 7 + ((2.5 - voltage) / 0.18);
+	medicionNivelPHmas = medirNivel(pinNivel5,pinNivel6);
+	medicionNivelPHmenos = medirNivel(pinNivel7,pinNivel8);
 
-//  float n6 = digitalRead(pinNivel6);//Se lee nivel de agua limpia.
-//  float n7 = digitalRead(pinNivel7);//Se lee nivel de agua descartada.
-//  float n8 = digitalRead(pinNivel8);//Se lee nivel de tanque principal lleno.
-//  float n9 = digitalRead(pinNivel9);//Se lee nivel de tanque principal vacio.
+	medicionTemperaturaAgua = medirTemperaturaAgua()
 
-  float co2 = gasSensor.getPPM();//Se mide el co2.
-  float rzero = gasSensor.getRZero();//Se mide el rzero para calibrar el co2.
+	medicionPH = medirPH();
 
-  int sensorValue = 0;
-  int outputValue = 0;
-  sensorValue = analogRead(pinCE);
-  outputValue = map(sensorValue, 0, 1023, 0, 5000);
+	medicionNivelTanqueAguaLimpia = medirNivel(pinNivel9,pinNivel10);
+	medicionNivelTanqueDesechable = medirNivel(pinNivel11,pinNivel12);
+	medicionNivelTanquePrincial = medirNivel(pinNivel13,pinNivel14);
+
+	medicionCO2 = medirCO2();
+
+	medicionCE = medirCE();
 
   if (SALIDASERIAL == 1)
   {
     //Se imprimen las variables
     Serial.println("Humedad: ");
-    Serial.println(h);
+    Serial.println(medicionHumedad);
     Serial.println("Temperatura: ");
-    Serial.println(t);
+    Serial.println(medicionTemperaturaAire);
 
-//    Serial.println("Nutrientes A: ");
-//    Serial.println(n1);
-//    Serial.println("Nutrientes B: ");
-//    Serial.println(n2);
-//    Serial.println("Nutrientes C: ");
-//    Serial.println(n3);
-//
-//    Serial.println("pH+: ");
-//    Serial.println(n4);
-//    Serial.println("pH-: ");
-//    Serial.println(n5);
+    Serial.println("Nutrientes A: ");
+    Serial.println(medicionNivelNutrienteA);
+    Serial.println("Nutrientes B: ");
+    Serial.println(medicionNivelNutrienteB);
+
+    Serial.println("pH+: ");
+    Serial.println(medicionNivelPHmas);
+    Serial.println("pH-: ");
+    Serial.println(medicionNivelPHmenos);
 
     Serial.print("Temperatura agua: ");
-    Serial.print(wt);
+    Serial.print(medicionTemperaturaAgua);
     Serial.println(" ºC");
 
     Serial.print("PH: ");
-    Serial.print(ph, 3);
+    Serial.print(medicionPH, 3);
     Serial.println("");
 
-//    Serial.print("Tanque de agua limpia ");
-//    if (n6 == LOW)
-//      Serial.print("No Vacio");
-//    else
-//      Serial.print("Vacio");
-//    Serial.println("");
-//
-//    Serial.print("Tanque de agua descartada ");
-//    if (n7 == LOW)
-//      Serial.print("No Lleno");
-//    else
-//      Serial.print("Lleno");
-//    Serial.println("");
-//
-//    Serial.print("Tanque de agua principal ");
-//    if (n8 == LOW)
-//      Serial.print("No Lleno");
-//    else
-//      Serial.print("Lleno");
-//    Serial.print("\t");
-//    if (n9 == LOW)
-//      Serial.print("No Vacio");
-//    else
-//      Serial.print("Vacio");
-//    Serial.println("");
+	Serial.println("Tanque de agua limpia ");
+	Serial.println(medicionNivelTanqueAguaLimpia);
+	Serial.println("Tanque de agua descartada ");
+	Serial.println(medicionNivelTanqueDesechable);
+	Serial.println("Tanque de agua principal ");
+	Serial.println(medicionNivelTanquePrincial);
 
     Serial.println("CO2: ");
-    Serial.println(co2);
+    Serial.println(medicionCO2);
     Serial.print(" ppm");
-    //    Serial.println(": ");
-    //    Serial.println(rzero);
 
-    Serial.println("");
 
-    Serial.print("sensor=");
+    Serial.println("sensor=");
     Serial.print(sensorValue);
     Serial.print("\t output=");
-    Serial.println(analogRead(pinCE) * 5.00 / 1024, 2);
+    Serial.println(medicionCE);
 
     Serial.println("");
   }
@@ -404,3 +372,60 @@ bool apagarCalentador()
   return true;
 }
 //************************************************************** FUNCIONES de encendido y apagado de dispositivos >
+//
+//************************************************************** < FUNCIONES de medición
+float medirNivel(int PinTrig, int PinEcho)
+{
+	digitalWrite(PinTrig, LOW);
+	delayMicroseconds(2);
+
+	digitalWrite(PinTrig, HIGH);
+	delayMicroseconds(10);
+
+	float tiempo = pulseIn(PinEcho, HIGH);
+	float distancia = (tiempo/2)/29.1;
+
+	return distancia;
+}
+
+float medirHumedad()
+{
+	return dht.readHumidity(); //Se lee la humedad del aire.	
+}
+
+float medirTemperatura()
+{
+	return dht.readTemperature(); //Se lee la temperatura del aire.
+}
+
+float medirTemperaturaAgua()
+{
+	sensorDS18B20.requestTemperatures();
+	return sensorDS18B20.getTempCByIndex(0);//Se lee la temperatura del agua.	
+}
+
+float medirPH() 
+{
+	int measure = analogRead(pinPH);//Se lee el pH.
+	double voltage = 5 / 1024.0 * measure;
+	return 7 + ((2.5 - voltage) / 0.18);
+}
+
+float medirCE() 
+{
+	int sensorValue = 0;
+	int outputValue = 0;
+	sensorValue = analogRead(pinCE);
+	outputValue = map(sensorValue, 0, 1023, 0, 5000);
+	return analogRead(pinCE) * 5.00 / 1024, 2;
+}
+
+float medirCO2() 
+{
+	return gasSensor.getPPM();//Se mide el co2.
+	//float rzero = gasSensor.getRZero();//Se mide el rzero para calibrar el co2.
+	//    Serial.println(":::::rzero ");
+    //    Serial.println(rzero);
+}
+
+//************************************************************** FUNCIONES de medición >
