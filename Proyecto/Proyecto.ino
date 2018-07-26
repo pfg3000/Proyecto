@@ -17,17 +17,27 @@
 MQ135 gasSensor = MQ135(pinCO2);
 
 //************************* Niveles de liquido *********************************************
-#define pinNivel1 A3 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A.
-#define pinNivel2 A4 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B.
-#define pinNivel3 A5 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes C.
-#define pinNivel4 A6 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH+.
-#define pinNivel5 A7 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH-.
+#define pinNivel1 24 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A.
+#define pinNivel2 25 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A.
 
-//************************* Niveles de liquido *********************************************
-#define pinNivel6 25 //Seleccionamos el pin en el que se conectará el sensor de nivel de agua limpia.
-#define pinNivel7 26 //Seleccionamos el pin en el que se conectará el sensor de nivel de agua descartada.
-#define pinNivel8 27 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal lleno.
-#define pinNivel9 28 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal vacio.
+#define pinNivel3 26 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B.
+#define pinNivel4 27 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B.
+
+#define pinNivel5 28 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH+.
+#define pinNivel6 29 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH+.
+
+#define pinNivel7 30 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH-.
+#define pinNivel8 31 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH-.
+
+//************************* Niveles de agua *********************************************
+#define pinNivel9 32 //Seleccionamos el pin en el que se conectará el sensor de nivel de agua limpia.
+#define pinNivel10 33 //Seleccionamos el pin en el que se conectará el sensor de nivel de agua limpia.
+
+#define pinNivel11 34 //Seleccionamos el pin en el que se conectará el sensor de nivel de agua descartada.
+#define pinNivel12 35 //Seleccionamos el pin en el que se conectará el sensor de nivel de agua descartada.
+
+#define pinNivel13 36 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal.
+#define pinNivel14 37 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal.
 
 //************************** Temperatura y humedad del aire ********************************
 #define DHTTYPE DHT22 //Se selecciona el tipo de sensor medidor de temperatura DHT22.
@@ -35,30 +45,30 @@ MQ135 gasSensor = MQ135(pinCO2);
 DHT dht(pinDHT, DHTTYPE); //Se inicia una variable que será usada por Arduino para comunicarse con el sensor.
 
 //*********************************** ACTUADORES ***************************************** 16 relé
-#define BombaEnfriadoPinRELE1 30 //Seleccionamos el pin en el que se conectará Bomba de agua Enfriado.
-#define BombaLlenadoPinRELE2 31 //Seleccionamos el pin en el que se conectará Bomba de agua Llenado.
-#define BombaPrincipalPinRELE3 32 //Seleccionamos el pin en el que se conectará Bomba de agua Principal.
-#define BombaVaciadoPinRELE4 33 //Seleccionamos el pin en el que se conectará Bomba de agua Vaciado.
-#define NutrienteApinRELE5 34 //Seleccionamos el pin en el que se conectará Bomba peristáltica Nutriente A.
-#define NutrienteBpinRELE6 35 //Seleccionamos el pin en el que se conectará Bomba peristáltica Nutriente B.
-#define pHMasPinRELE7 36 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH+.
-#define pHmenosPinRELE8 37 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH-.
-#define LucesPinRELE9 38 //Seleccionamos el pin en el que se conectará Luces Led.
-#define VentiladoresPinRELE10 39 //Seleccionamos el pin en el que se conectará Ventiladores.
-#define CalentadorPinRELE11 40 //Seleccionamos el pin en el que se conectará Calentador.
-#define pinRELE12 41 //Seleccionamos el pin en el que se conectará **Sin Asignar.
-#define pinRELE13 42 //Seleccionamos el pin en el que se conectará **Sin Asignar.
-#define pinRELE14 43 //Seleccionamos el pin en el que se conectará **Sin Asignar.
-#define pinRELE15 44 //Seleccionamos el pin en el que se conectará **Sin Asignar.
-#define pinRELE16 45 //Seleccionamos el pin en el que se conectará **Sin Asignar.
+#define BombaEnfriadoPinRELE1 40 //Seleccionamos el pin en el que se conectará Bomba de agua Enfriado.
+#define BombaLlenadoPinRELE2 41 //Seleccionamos el pin en el que se conectará Bomba de agua Llenado.
+#define BombaPrincipalPinRELE3 42 //Seleccionamos el pin en el que se conectará Bomba de agua Principal.
+#define BombaVaciadoPinRELE4 43 //Seleccionamos el pin en el que se conectará Bomba de agua Vaciado.
+#define NutrienteApinRELE5 44 //Seleccionamos el pin en el que se conectará Bomba peristáltica Nutriente A.
+#define NutrienteBpinRELE6 45 //Seleccionamos el pin en el que se conectará Bomba peristáltica Nutriente B.
+#define pHMasPinRELE7 46 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH+.
+#define pHmenosPinRELE8 47 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH-.
+#define LucesPinRELE9 48 //Seleccionamos el pin en el que se conectará Luces Led.
+#define VentiladoresPinRELE10 49 //Seleccionamos el pin en el que se conectará Ventiladores.
+#define CalentadorPinRELE11 50 //Seleccionamos el pin en el que se conectará Calentador.
+#define pinRELE12 51 //Seleccionamos el pin en el que se conectará **Sin Asignar.
+#define pinRELE13 52 //Seleccionamos el pin en el que se conectará **Sin Asignar.
+#define pinRELE14 53 //Seleccionamos el pin en el que se conectará **Sin Asignar.
+//#define pinRELE15 44 //Seleccionamos el pin en el que se conectará **Sin Asignar.
+//#define pinRELE16 45 //Seleccionamos el pin en el que se conectará **Sin Asignar.
 
 //************************** Temperatura del agua *****************************************
-const int pinDS18B20 = 28; //Seleccionamos el pin en el que se conectará el sensor DS18B20.
+const int pinDS18B20 = 23; //Seleccionamos el pin en el que se conectará el sensor DS18B20.
 OneWire oneWireObjeto(pinDS18B20);//Inicializamos la clase.
 DallasTemperature sensorDS18B20(&oneWireObjeto);//Inicializamos la clase.
 
 
-//*********************************************************************************** < VARIABLES PARA MEDICIONES 
+//*********************************************************************************** < VARIABLES PARA MEDICIONES
 //Variables para Luz
 float hsLuzParametro = 0.0;
 
@@ -94,8 +104,8 @@ float co2MinParametro = 0.0;
 float medicionNivelNutrienteA = 0.0; //Valor medido
 float medicionNivelNutrienteB = 0.0; //Valor medido
 float medicionCE = 0.0; //Valor medido
-float ceMaxParametro = 0.0
-float ceMinParametro = 0.0
+float ceMaxParametro = 0.0;
+float ceMinParametro = 0.0;
 
 //Variables para la medicion de los niveles de los tanques de agua
 float medicionNivelTanquePrincial = 0.0; //Valor medido
@@ -111,23 +121,29 @@ void setup() {
   dht.begin(); //Se inicia el sensor DHT22.
   sensorDS18B20.begin(); //Se inicia el sensor DS18B20.
 
-  //********* ENTRADAS
+  //********* SENSORES
   pinMode(pinNivel1, INPUT); //nivel de nutrientes A.
-  pinMode(pinNivel2, INPUT); //nivel de nutrientes B.
-  pinMode(pinNivel3, INPUT); //nivel de nutrientes C.
-  pinMode(pinNivel4, INPUT); //nivel de ph+.
-  pinMode(pinNivel5, INPUT); //nivel de ph-.
-  pinMode(pinNivel6, INPUT); //agua limpia.
-  pinMode(pinNivel7, INPUT); //agua descartada.
-  pinMode(pinNivel8, INPUT); //tanque principal lleno.
-  pinMode(pinNivel9, INPUT); //tanque principal vacio.
+  pinMode(pinNivel2, OUTPUT); //nivel de nutrientes A.
+  pinMode(pinNivel3, INPUT); //nivel de nutrientes B.
+  pinMode(pinNivel4, OUTPUT); //nivel de nutrientes B.
+  pinMode(pinNivel5, INPUT); //nivel de ph+.
+  pinMode(pinNivel6, OUTPUT); //nivel de ph+.
+  pinMode(pinNivel7, INPUT); //nivel de ph-.
+  pinMode(pinNivel8, OUTPUT); //nivel de ph-.
+  pinMode(pinNivel9, INPUT); //agua limpia.
+  pinMode(pinNivel10, OUTPUT); //agua limpia.
+  pinMode(pinNivel11, INPUT); //agua descartada.
+  pinMode(pinNivel12, OUTPUT); //agua descartada.
+  pinMode(pinNivel13, INPUT); //tanque principal.
+  pinMode(pinNivel14, OUTPUT); //tanque principal.
+
   pinMode(pinPH, INPUT); //ph.
   pinMode(pinCE, INPUT); //ce.
   pinMode(pinCO2, INPUT); //co2.
   pinMode(pinDHT, INPUT); //temperatura y humedad del aire.
   pinMode(pinDS18B20, INPUT); //temperatura del agua.
 
-  //********* SALIDAS
+  //********* ACTUADORES
   pinMode(BombaEnfriadoPinRELE1, OUTPUT); //Bomba de agua Enfriado.
   pinMode(BombaLlenadoPinRELE2, OUTPUT); //Bomba de agua Llenado.
   pinMode(BombaPrincipalPinRELE3, OUTPUT); //Bomba de agua Principal.
@@ -142,20 +158,20 @@ void setup() {
   pinMode(pinRELE12, OUTPUT); // **Sin Asignar.
   pinMode(pinRELE13, OUTPUT); // **Sin Asignar.
   pinMode(pinRELE14, OUTPUT); // **Sin Asignar.
-  pinMode(pinRELE15, OUTPUT); // **Sin Asignar.
-  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
+  //  pinMode(pinRELE15, OUTPUT); // **Sin Asignar.
+  //  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
 
 }
 
 void loop() {
   float h = dht.readHumidity(); //Se lee la humedad del aire.
   float t = dht.readTemperature(); //Se lee la temperatura del aire.
-
-  float n1 = analogRead(pinNivel1);//Se lee nivel de nutrientes A.
-  float n2 = analogRead(pinNivel2);//Se lee nivel de nutrientes B.
-  float n3 = analogRead(pinNivel3);//Se lee nivel de nutrientes C.
-  float n4 = analogRead(pinNivel4);//Se lee nivel de pH+.
-  float n5 = analogRead(pinNivel5);//Se lee nivel de pH-.
+//
+//  float n1 = analogRead(pinNivel1);//Se lee nivel de nutrientes A.
+//  float n2 = analogRead(pinNivel2);//Se lee nivel de nutrientes B.
+//  float n3 = analogRead(pinNivel3);//Se lee nivel de nutrientes C.
+//  float n4 = analogRead(pinNivel4);//Se lee nivel de pH+.
+//  float n5 = analogRead(pinNivel5);//Se lee nivel de pH-.
 
   sensorDS18B20.requestTemperatures();
   float wt = sensorDS18B20.getTempCByIndex(0);//Se lee la temperatura del agua.
@@ -164,10 +180,10 @@ void loop() {
   double voltage = 5 / 1024.0 * measure;
   float ph = 7 + ((2.5 - voltage) / 0.18);
 
-  float n6 = digitalRead(pinNivel6);//Se lee nivel de agua limpia.
-  float n7 = digitalRead(pinNivel7);//Se lee nivel de agua descartada.
-  float n8 = digitalRead(pinNivel8);//Se lee nivel de tanque principal lleno.
-  float n9 = digitalRead(pinNivel9);//Se lee nivel de tanque principal vacio.
+//  float n6 = digitalRead(pinNivel6);//Se lee nivel de agua limpia.
+//  float n7 = digitalRead(pinNivel7);//Se lee nivel de agua descartada.
+//  float n8 = digitalRead(pinNivel8);//Se lee nivel de tanque principal lleno.
+//  float n9 = digitalRead(pinNivel9);//Se lee nivel de tanque principal vacio.
 
   float co2 = gasSensor.getPPM();//Se mide el co2.
   float rzero = gasSensor.getRZero();//Se mide el rzero para calibrar el co2.
@@ -185,17 +201,17 @@ void loop() {
     Serial.println("Temperatura: ");
     Serial.println(t);
 
-    Serial.println("Nutrientes A: ");
-    Serial.println(n1);
-    Serial.println("Nutrientes B: ");
-    Serial.println(n2);
-    Serial.println("Nutrientes C: ");
-    Serial.println(n3);
-
-    Serial.println("pH+: ");
-    Serial.println(n4);
-    Serial.println("pH-: ");
-    Serial.println(n5);
+//    Serial.println("Nutrientes A: ");
+//    Serial.println(n1);
+//    Serial.println("Nutrientes B: ");
+//    Serial.println(n2);
+//    Serial.println("Nutrientes C: ");
+//    Serial.println(n3);
+//
+//    Serial.println("pH+: ");
+//    Serial.println(n4);
+//    Serial.println("pH-: ");
+//    Serial.println(n5);
 
     Serial.print("Temperatura agua: ");
     Serial.print(wt);
@@ -205,31 +221,31 @@ void loop() {
     Serial.print(ph, 3);
     Serial.println("");
 
-    Serial.print("Tanque de agua limpia ");
-    if (n6 == LOW)
-      Serial.print("No Vacio");
-    else
-      Serial.print("Vacio");
-    Serial.println("");
-
-    Serial.print("Tanque de agua descartada ");
-    if (n7 == LOW)
-      Serial.print("No Lleno");
-    else
-      Serial.print("Lleno");
-    Serial.println("");
-
-    Serial.print("Tanque de agua principal ");
-    if (n8 == LOW)
-      Serial.print("No Lleno");
-    else
-      Serial.print("Lleno");
-    Serial.print("\t");
-    if (n9 == LOW)
-      Serial.print("No Vacio");
-    else
-      Serial.print("Vacio");
-    Serial.println("");
+//    Serial.print("Tanque de agua limpia ");
+//    if (n6 == LOW)
+//      Serial.print("No Vacio");
+//    else
+//      Serial.print("Vacio");
+//    Serial.println("");
+//
+//    Serial.print("Tanque de agua descartada ");
+//    if (n7 == LOW)
+//      Serial.print("No Lleno");
+//    else
+//      Serial.print("Lleno");
+//    Serial.println("");
+//
+//    Serial.print("Tanque de agua principal ");
+//    if (n8 == LOW)
+//      Serial.print("No Lleno");
+//    else
+//      Serial.print("Lleno");
+//    Serial.print("\t");
+//    if (n9 == LOW)
+//      Serial.print("No Vacio");
+//    else
+//      Serial.print("Vacio");
+//    Serial.println("");
 
     Serial.println("CO2: ");
     Serial.println(co2);
@@ -254,7 +270,7 @@ void loop() {
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
 
-//************************************************************** < FUNCIONES de encendido y apagado de dispositivos 
+//************************************************************** < FUNCIONES de encendido y apagado de dispositivos
 
 //BombaEnfriadoPinRELE1
 bool encenderEnfriador()
@@ -328,75 +344,63 @@ bool apagarBombaNutrientesB()
   return true;
 }
 
-//NutrienteCpinRELE7
-bool encenderNutrientesC()
-{
-  digitalWrite(NutrienteCpinRELE7, HIGH);
-  return true;
-}
-bool apagarBombaNutrientesC()
-{
-  digitalWrite(NutrienteCpinRELE7, LOW);
-  return true;
-}
-
-//pHMasPinRELE8
+//pHMasPinRELE7
 bool encenderPHmas()
 {
-  digitalWrite(pHMasPinRELE8, HIGH);
+  digitalWrite(pHMasPinRELE7, HIGH);
   return true;
 }
 bool apagarPHmas()
 {
-  digitalWrite(pHMasPinRELE8, LOW);
+  digitalWrite(pHMasPinRELE7, LOW);
   return true;
 }
 
-//pHmenosPinRELE9
+//pHmenosPinRELE8
 bool encenderPHmenos()
 {
-  digitalWrite(pHmenosPinRELE9, HIGH);
+  digitalWrite(pHmenosPinRELE8, HIGH);
   return true;
 }
 bool apagarPHmenos()
 {
-  digitalWrite(pHmenosPinRELE9, LOW);
+  digitalWrite(pHmenosPinRELE8, LOW);
   return true;
 }
 
-//LucesPinRELE10
+//LucesPinRELE9
 bool encenderLuces()
 {
-  digitalWrite(LucesPinRELE10, HIGH);
+  digitalWrite(LucesPinRELE9, HIGH);
   return true;
 }
 bool apagarLuces()
 {
-  digitalWrite(LucesPinRELE10, LOW);
+  digitalWrite(LucesPinRELE9, LOW);
   return true;
 }
 
-//VentiladoresPinRELE11
+//VentiladoresPinRELE10
 bool encenderVentiladores()
 {
-  digitalWrite(VentiladoresPinRELE11, HIGH);
+  digitalWrite(VentiladoresPinRELE10, HIGH);
   return true;
 }
 bool apagarVentiladores()
 {
-  digitalWrite(VentiladoresPinRELE11, LOW);
+  digitalWrite(VentiladoresPinRELE10, LOW);
   return true;
 }
 
-//CalentadorPinRELE12
+//CalentadorPinRELE11
 bool encenderCalentador()
 {
-  digitalWrite(CalentadorPinRELE12, HIGH);
+  digitalWrite(CalentadorPinRELE11, HIGH);
   return true;
 }
 bool apagarCalentador()
 {
-  digitalWrite(CalentadorPinRELE12, LOW);
+  digitalWrite(CalentadorPinRELE11, LOW);
   return true;
 }
 //************************************************************** FUNCIONES de encendido y apagado de dispositivos >
