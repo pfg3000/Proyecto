@@ -164,26 +164,38 @@ void setup() {
 }
 
 void loop() {
-  medicionHumedad = medirHumedad();
-  medicionTemperaturaAire = medirTemperatura();
 
-  medicionNivelNutrienteA = medirNivel(pinNivel1, pinNivel2);
-  medicionNivelNutrienteB = medirNivel(pinNivel3, pinNivel4);
+  //Tomar parametros del cultivo.
+  //  if (!obtenerParametros())
+  //  {
+  //    setParametrosDefault();
+  //  }
+  humedadMaxParametro = 60.0;
+  humedadMinParametro = 40.0;
+  temperaturaAireMaxParametro = 30.0;
+  temperaturaAireMinParametro = 15.0;
+  co2MaxParametro = 500.0;
+  co2MinParametro = 300.0;
 
-  medicionNivelPHmas = medirNivel(pinNivel5, pinNivel6);
-  medicionNivelPHmenos = medirNivel(pinNivel7, pinNivel8);
+  if (!controlarNivelesPH())
+  {
+    //Algo falló.
+  }
 
-  medicionTemperaturaAgua = medirTemperaturaAgua();
+  if (!controlarNivelesTanques())
+  {
+    //Algo falló.
+  }
 
-  medicionPH = medirPH();
+  if (!controlarAgua())
+  {
+    //Algo falló.
+  }
 
-  medicionNivelTanqueAguaLimpia = medirNivel(pinNivel9, pinNivel10);
-  medicionNivelTanqueDesechable = medirNivel(pinNivel11, pinNivel12);
-  medicionNivelTanquePrincial = medirNivel(pinNivel13, pinNivel14);
-
-  medicionCO2 = medirCO2();
-
-  medicionCE = medirCE();
+  if (!controlarAire())
+  {
+    //Algo falló.
+  }
 
   if (SALIDASERIAL == 1)
   {
@@ -376,8 +388,61 @@ bool apagarCalentador()
 //************************************************************** FUNCIONES de encendido y apagado de dispositivos >
 //
 //************************************************************** < FUNCIONES de medición
-float medirNivel(int PinTrig, int PinEcho)
+float medirNivel(char caso[])
 {
+  int PinTrig;
+  int PinEcho;
+
+  if (strcmp(caso, "medicionNivelNutrienteA") == 0)
+  {
+    PinTrig = pinNivel1;
+    PinEcho = pinNivel2;
+    goto continua;
+  }
+
+  if (strcmp(caso, "medicionNivelNutrienteB") == 0)
+  {
+    PinTrig = pinNivel3;
+    PinEcho = pinNivel4;
+    goto continua;
+  }
+
+  if (strcmp(caso, "medicionNivelPHmas") == 0)
+  {
+    PinTrig = pinNivel5;
+    PinEcho = pinNivel6;
+    goto continua;
+  }
+
+  if (strcmp(caso, "medicionNivelPHmenos") == 0)
+  {
+    PinTrig = pinNivel7;
+    PinEcho = pinNivel8;
+    goto continua;
+  }
+
+  if (strcmp(caso, "medicionNivelTanqueAguaLimpia") == 0)
+  {
+    PinTrig = pinNivel9;
+    PinEcho = pinNivel10;
+    goto continua;
+  }
+
+  if (strcmp(caso, "medicionNivelTanqueDesechable") == 0)
+  {
+    PinTrig = pinNivel11;
+    PinEcho = pinNivel12;
+    goto continua;
+  }
+
+  if (strcmp(caso, "medicionNivelTanquePrincial") == 0)
+  {
+    PinTrig = pinNivel13;
+    PinEcho = pinNivel14;
+  }
+
+continua:
+
   digitalWrite(PinTrig, LOW);
   delayMicroseconds(2);
 
@@ -431,3 +496,77 @@ float medirCO2()
 }
 
 //************************************************************** FUNCIONES de medición >
+//
+//************************************************************** < FUNCIONES de control
+bool controlarAire()
+{
+  medicionHumedad = medirHumedad();
+  medicionTemperaturaAire = medirTemperatura();
+  medicionCO2 = medirCO2();
+
+  if (medicionHumedad == -10000)
+  {
+    medicionHumedad = 0.0;
+    return false;
+  }
+  else if (medicionHumedad < humedadMinParametro || medicionHumedad > humedadMaxParametro)
+  { //Se requiere alguna accion.
+    encenderVentiladores();
+  }
+  else
+  {
+  }
+
+  if (medicionTemperaturaAire == -10000)
+  {
+    medicionTemperaturaAire = 0.0;
+  }
+  else if (medicionTemperaturaAire < temperaturaAireMinParametro || medicionTemperaturaAire > temperaturaAireMaxParametro)
+  { //Se requiere alguna accion.
+    encenderVentiladores();
+  }
+  else
+  {
+  }
+
+  if (medicionCO2 < co2MinParametro || medicionCO2 > co2MaxParametro)
+  { //Se requiere alguna accion.
+    encenderVentiladores();
+  }
+
+  return true;
+}
+
+bool controlarAgua()
+{
+  medicionTemperaturaAgua = medirTemperaturaAgua();
+  medicionPH = medirPH();
+  medicionCE = medirCE();
+  return true;
+}
+
+bool controlarNivelesPH()
+{
+  medicionNivelPHmas = medirNivel("medicionNivelPHmas");
+  medicionNivelPHmenos = medirNivel("medicionNivelPHmenos");
+
+  return true;
+}
+
+bool controlarNivelesNutrintes()
+{
+  medicionNivelNutrienteA = medirNivel("medicionNivelNutrie");
+  medicionNivelNutrienteB = medirNivel("medicionNivelNutrienteB");
+
+  return true;
+}
+
+bool controlarNivelesTanques()
+{
+  medicionNivelTanqueAguaLimpia = medirNivel("medicionNivelTanqueAguaLimpia");
+  medicionNivelTanqueDesechable = medirNivel("medicionNivelTanqueDesechable");
+  medicionNivelTanquePrincial = medirNivel("medicionNivelTanquePrincial");
+
+  return true;
+}
+//************************************************************** FUNCIONES de control >

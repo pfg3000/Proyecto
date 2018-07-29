@@ -1,24 +1,24 @@
 /**************************************************************************/
 /*!
-@file     MQ135.h
-@author   G.Krocker (Mad Frog Labs)
-@license  GNU GPLv3
+  @file     MQ135.h
+  @author   G.Krocker (Mad Frog Labs)
+  @license  GNU GPLv3
 
-First version of an Arduino Library for the MQ135 gas sensor
-TODO: Review the correction factor calculation. This currently relies on
-the datasheet but the information there seems to be wrong.
+  First version of an Arduino Library for the MQ135 gas sensor
+  TODO: Review the correction factor calculation. This currently relies on
+  the datasheet but the information there seems to be wrong.
 
-@section  HISTORY
+  @section  HISTORY
 
-v1.0 - First release
+  v1.0 - First release
 */
 /**************************************************************************/
 #ifndef MQ135_H
 #define MQ135_H
 #if ARDUINO >= 100
- #include "Arduino.h"
+#include "Arduino.h"
 #else
- #include "WProgram.h"
+#include "WProgram.h"
 #endif
 
 /// The load resistance on the board
@@ -39,17 +39,17 @@ v1.0 - First release
 #define ATMOCO2 397.13
 
 class MQ135 {
- private:
-  uint8_t _pin;
+  private:
+    uint8_t _pin;
 
- public:
-  MQ135(uint8_t pin);
-  float getCorrectionFactor(float t, float h);
-  float getResistance();
-  float getCorrectedResistance(float t, float h);
-  float getPPM();
-  float getCorrectedPPM(float t, float h);
-  float getRZero();
-  float getCorrectedRZero(float t, float h);
+  public:
+    MQ135(uint8_t pin);
+    float getCorrectionFactor(float t, float h);
+    float getResistance();
+    float getCorrectedResistance(float t, float h);
+    float getPPM();
+    float getCorrectedPPM(float t, float h);
+    float getRZero();
+    float getCorrectedRZero(float t, float h);
 };
 #endif
