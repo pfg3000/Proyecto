@@ -46,7 +46,7 @@ float DHT::readTemperature(bool S) {
         return f;
     }
   }
-  Serial.print("Read fail");
+  //Serial.print("Read fail");
   return -10000;
 }
 
@@ -70,7 +70,7 @@ float DHT::readHumidity(void) {
         return f;
     }
   }
-  Serial.print("Read fail");
+  //Serial.print("Read fail");
   return -10000;
 }
 
