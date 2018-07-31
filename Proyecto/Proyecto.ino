@@ -34,6 +34,22 @@
 String receivedPackage = "";
 bool   packageComplete = false;
 
+//************************** Banderas de comandos y errores *********************
+bool CMD_BAJAR_TEMPERATURA_AGUA = false;
+bool CMD_SUBIR_TEMPERATURA_AGUA = false;
+bool ERR_MEDICION_TEMPERATURA_AGUA = false;
+bool CMD_SUBIR_PH = false;
+bool CMD_BAJAR_PH = false;
+bool ERR_MEDICION_PH = false;
+bool CMD_ADD_NUTRIENTE_A = false;
+bool CMD_ADD_NUTRIENTE_B = false;
+bool CMD_ADD_AGUA = false;
+bool ERR_MEDICION_CE = false;
+bool VENTILAR = false;
+bool ERR_MEDICION_HUMEDAD = false;
+bool ERR_MEDICION_TEMPERATURA = false;
+bool ERR_MEDICION_CO2 = false;
+
 //************************** pH del agua *****************************************
 #define pinPH A1 //Seleccionamos el pin que usara el sensor de pH.
 
@@ -226,12 +242,12 @@ void loop() {
     //Algo falló.
   }
 
-  if (!controlarAgua())
+  if (!analizarAgua())
   {
     //Algo falló.
   }
 
-  if (!controlarAire())
+  if (!analizarAire())
   {
     //Algo falló.
   }
@@ -543,87 +559,162 @@ float medirCO2()
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES de control
 //---------------------------------------------------------------------------------------------------------------//
-bool controlarAire()
+bool analizarAire()
 {
+  VENTILAR = false;
+
+  //------------------------------------------------------- Humedad
   medicionHumedad = medirHumedad();
-  medicionTemperaturaAire = medirTemperatura();
-  medicionCO2 = medirCO2();
 
   if (medicionHumedad == -10000)
   {
     medicionHumedad = 0.0;
+    ERR_MEDICION_HUMEDAD = true;
     //return false;
   }
   else if (medicionHumedad < humedadMinParametro || medicionHumedad > humedadMaxParametro)
   { //Se requiere alguna accion.
-    encenderVentiladores();
+    //encenderVentiladores();
+    VENTILAR = true;
   }
-  else
-  {
-  }
+  ERR_MEDICION_HUMEDAD = false;
+
+  //-------------------------------------------------------TMP
+  medicionTemperaturaAire = medirTemperatura();
 
   if (medicionTemperaturaAire == -10000)
   {
     medicionTemperaturaAire = 0.0;
+    ERR_MEDICION_TEMPERATURA = true;
     //return false;
   }
   else if (medicionTemperaturaAire < temperaturaAireMinParametro || medicionTemperaturaAire > temperaturaAireMaxParametro)
   { //Se requiere alguna accion.
-    encenderVentiladores();
+    //encenderVentiladores();
+    VENTILAR = true;
   }
-  else
-  {
-  }
+  ERR_MEDICION_TEMPERATURA = false;
 
+  //-------------------------------------------------------CO2
+  medicionCO2 = medirCO2();
   if (medicionCO2 > 10000)
   {
     medicionCO2 = 0.0;
+    ERR_MEDICION_CO2 = true;
     //return false;
   }
   else  if (medicionCO2 < co2MinParametro || medicionCO2 > co2MaxParametro)
   { //Se requiere alguna accion.
-    encenderVentiladores();
+    //encenderVentiladores();
+    VENTILAR = true;
   }
+  ERR_MEDICION_CO2 = false;
 
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
-bool controlarAgua()
+bool analizarAgua()
 {
+  //-------------------------------------------------------TMP
   medicionTemperaturaAgua = medirTemperaturaAgua();
-  medicionPH = medirPH();
-  medicionCE = medirCE();
 
   if (medicionTemperaturaAgua < -100)
   {
     medicionTemperaturaAgua = 0.0;
+    ERR_MEDICION_TEMPERATURA_AGUA = true;
     //return false;
   }
   else if (medicionTemperaturaAgua < temperaturaAguaMinParametro || medicionTemperaturaAgua > temperaturaAguaMaxParametro)
   { //Se requiere alguna accion.
-    encenderEnfriador();
+    //encenderEnfriador();
+    if (medicionTemperaturaAgua < temperaturaAguaMinParametro)
+    { //Bajar temperatura.
+      CMD_BAJAR_TEMPERATURA_AGUA = true;
+      CMD_SUBIR_TEMPERATURA_AGUA = false;
+    }
+    else if (medicionTemperaturaAgua > temperaturaAguaMaxParametro)
+    { //Subir temperaruta.
+      CMD_BAJAR_TEMPERATURA_AGUA = false;
+      CMD_SUBIR_TEMPERATURA_AGUA = true;
+    }
   }
   else
-  {
+  { //No hace nada.
+    CMD_BAJAR_TEMPERATURA_AGUA = false;
+    CMD_SUBIR_TEMPERATURA_AGUA = false;
   }
+  ERR_MEDICION_TEMPERATURA_AGUA = false;
+
+  //-------------------------------------------------------PH
+  medicionPH = medirPH();
 
   if (medicionPH == 0 )
   { //Sensor desconectado o apagado.
     medicionPH = 0.0;
+    ERR_MEDICION_PH = true;
     //return false;
   }
   else if (medicionPH < 0 )
   { //Sonda desconectada.
     medicionPH = 0.0;
+    ERR_MEDICION_PH = true;
     //return false;
   }
   else if (medicionPH < PHminParametro || medicionPH > PHmaxParametro)
   { //Se requiere alguna accion.
-    encenderEnfriador();
+    if (medicionPH < PHminParametro)
+    {
+      //encenderPHmas();
+      CMD_SUBIR_PH = true;
+      CMD_BAJAR_PH = false;
+    }
+    else if (medicionPH > PHmaxParametro)
+    {
+      //encenderPHmenos();
+      CMD_SUBIR_PH = false;
+      CMD_BAJAR_PH = true;
+    }
   }
   else
-  {
+  { //No hace nada.
+    CMD_SUBIR_PH = false;
+    CMD_BAJAR_PH = false;
   }
+  ERR_MEDICION_PH = false;
+
+  //-------------------------------------------------------CE
+  medicionCE = medirCE();
+
+  if (medicionCE == 0 )
+  { //Sensor desconectado o apagado.
+    medicionCE = 0.0;
+    ERR_MEDICION_CE = true;
+    //return false;
+  }
+  else if (medicionCE < ceMinParametro || medicionCE > ceMaxParametro)
+  { //Se requiere alguna accion.
+    if (medicionCE < ceMinParametro)
+    {
+      //encenderPHmas();
+      CMD_ADD_NUTRIENTE_A = true;
+      CMD_ADD_NUTRIENTE_B = true;
+      CMD_ADD_AGUA = false;
+    }
+    else if (medicionPH > ceMaxParametro)
+    {
+      //encenderPHmenos();
+      CMD_ADD_NUTRIENTE_A = false;
+      CMD_ADD_NUTRIENTE_B = false;
+      CMD_ADD_AGUA = true;
+    }
+  }
+  else
+  { //No hace nada.
+    CMD_ADD_NUTRIENTE_A = false;
+    CMD_ADD_NUTRIENTE_B = false;
+    CMD_ADD_AGUA = false;
+  }
+  ERR_MEDICION_CE = false;
 
   return true;
 }
