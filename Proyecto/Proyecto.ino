@@ -34,7 +34,7 @@
 String receivedPackage = "";
 bool   packageComplete = false;
 
-//************************** Banderas de comandos y errores *********************
+//************************** Banderas de comandos y errores, variables varias *********************
 bool CMD_BAJAR_TEMPERATURA_AGUA = false;
 bool CMD_SUBIR_TEMPERATURA_AGUA = false;
 bool ERR_MEDICION_TEMPERATURA_AGUA = false;
@@ -45,10 +45,31 @@ bool CMD_ADD_NUTRIENTE_A = false;
 bool CMD_ADD_NUTRIENTE_B = false;
 bool CMD_ADD_AGUA = false;
 bool ERR_MEDICION_CE = false;
-bool VENTILAR = false;
+bool CMD_VENTILAR = false;
 bool ERR_MEDICION_HUMEDAD = false;
 bool ERR_MEDICION_TEMPERATURA = false;
 bool ERR_MEDICION_CO2 = false;
+
+bool ERR_MEDICION_NIVEL_PH_MAS = false;
+bool ERR_MEDICION_NIVEL_PH_MEN = false;
+bool ERR_MEDICION_NIVEL_NUT_A = false;
+bool ERR_MEDICION_NIVEL_NUT_B = false;
+bool ERR_MEDICION_NIVEL_PRINCIPAL = false;
+bool ERR_MEDICION_NIVEL_LIMPIA = false;
+bool ERR_MEDICION_NIVEL_DESCARTE = false;
+
+bool ALT_MINIMO_PH_MAS = false;
+bool ALT_MINIMO_PH_MEN = false;
+bool ALT_MINIMO_NUT_A = false;
+bool ALT_MINIMO_NUT_B = false;
+bool ALT_MINIMO_PRINCIPAL = false;
+bool ALT_MAXIMO_PRINCIPAL = false;
+bool ALT_MINIMO_LIMPIA = false;
+bool ALT_MAXIMO_LIMPIA = false;
+bool ALT_MINIMO_DESCARTE = false;
+bool ALT_MAXIMO_DESCARTE = false;
+
+# define CANTIDAD_MEDICIONES 10
 
 //************************** pH del agua *****************************************
 #define pinPH A1 //Seleccionamos el pin que usara el sensor de pH.
@@ -123,6 +144,8 @@ float PHmaxParametro = 0.0;
 float PHminParametro = 0.0;
 float medicionNivelPHmas = 0.0; //Valor medido
 float medicionNivelPHmenos = 0.0; //Valor medido
+float minimoNivelPHmas = 0.0;
+float minimoNivelPHmenos = 0.0;
 
 //Variables para medición de humedad del aire
 float medicionHumedad = 0.0; //Valor medido
@@ -150,11 +173,19 @@ float medicionNivelNutrienteB = 0.0; //Valor medido
 float medicionCE = 0.0; //Valor medido
 float ceMaxParametro = 0.0;
 float ceMinParametro = 0.0;
+float minimoNivelNutrienteA = 0.0;
+float minimoNivelNutrienteB = 0.0;
 
 //Variables para la medición de los niveles de los tanques de agua
 float medicionNivelTanquePrincial = 0.0; //Valor medido
 float medicionNivelTanqueAguaLimpia = 0.0; //Valor medido
 float medicionNivelTanqueDesechable = 0.0; //Valor medido
+float minimoNivelTanquePrincial = 0.0;
+float maximoNivelTanquePrincial = 0.0;
+float minimoNivelTanqueAguaLimpia = 0.0;
+float maximoNivelTanqueAguaLimpia = 0.0;
+float minimoNivelTanqueDesechable = 0.0;
+float maximoNivelTanqueDesechable = 0.0;
 
 //***********************************************************************************  VARIABLES PARA MEDICIONES >
 
@@ -208,7 +239,8 @@ void setup() {
   receivedPackage.reserve(200);
 }
 
-void loop() {
+void loop()
+{
 
   //Tomar parametros del cultivo.
   //  if (!obtenerParametros())
@@ -232,25 +264,125 @@ void loop() {
   ceMaxParametro = 0.333;
   ceMinParametro = 0.111;
 
+  minimoNivelPHmas = 10;
+  minimoNivelPHmenos = 10;
+  minimoNivelNutrienteA = 10;
+  minimoNivelNutrienteB = 10;
+  minimoNivelTanquePrincial = 10;
+  maximoNivelTanquePrincial = 5;
+  minimoNivelTanqueAguaLimpia = 10;
+  maximoNivelTanqueAguaLimpia = 5;
+  minimoNivelTanqueDesechable = 10;
+  maximoNivelTanqueDesechable = 5;
+
   if (!controlarNivelesPH())
   {
-    //Algo falló.
+    //Algo falló. Alertar
+    if (ERR_MEDICION_NIVEL_PH_MAS == true) {
+      generarAlerta("ERR_MEDICION_NIVEL_PH_MAS");
+    }
+    else if (ERR_MEDICION_NIVEL_PH_MEN == true) {
+      generarAlerta("ERR_MEDICION_NIVEL_PH_MEN");
+    }
+  }
+  else
+  {
+    //Alerto si hubo nivel bajo.
+    if (ALT_MINIMO_PH_MAS == true) {
+      generarAlerta("ALT_MINIMO_PH_MAS");
+    }
+    if (ALT_MINIMO_PH_MEN == true) {
+      generarAlerta("ALT_MINIMO_PH_MEN");
+    }
+  }
+
+  if (!controlarNivelesNutrintes())
+  {
+    //Algo falló. Alertar
+    if (ERR_MEDICION_NIVEL_NUT_A == true) {
+      generarAlerta("ERR_MEDICION_NIVEL_NUT_A");
+    }
+    else if (ERR_MEDICION_NIVEL_NUT_B == true) {
+      generarAlerta("ERR_MEDICION_NIVEL_NUT_B");
+    }
+  }
+  else
+  {
+    //Alerto si hubo nivel bajo.
+    if (ALT_MINIMO_NUT_A == true) {
+      generarAlerta("ALT_MINIMO_NUT_A");
+    }
+    if (ALT_MINIMO_NUT_B == true) {
+      generarAlerta("ALT_MINIMO_NUT_B");
+    }
   }
 
   if (!controlarNivelesTanques())
   {
-    //Algo falló.
+    //Algo falló. Alertar
+    if (ERR_MEDICION_NIVEL_PRINCIPAL == true) {
+      generarAlerta("ERR_MEDICION_NIVEL_PRINCIPAL");
+    }
+    else if (ERR_MEDICION_NIVEL_LIMPIA == true) {
+      generarAlerta("ERR_MEDICION_NIVEL_LIMPIA");
+    }
+    else if (ERR_MEDICION_NIVEL_DESCARTE == true) {
+      generarAlerta("ERR_MEDICION_NIVEL_DESCARTE");
+    }
+  }
+  else
+  {
+    //Alerto si hubo nivel bajo o alto.
+    if (ALT_MINIMO_PRINCIPAL == true) {
+      generarAlerta("ALT_MINIMO_PRINCIPAL");
+    }
+    if (ALT_MAXIMO_PRINCIPAL == true) {
+      generarAlerta("ALT_MAXIMO_PRINCIPAL");
+    }
+    if (ALT_MINIMO_LIMPIA == true) {
+      generarAlerta("ALT_MINIMO_LIMPIA");
+    }
+    if (ALT_MAXIMO_LIMPIA == true) {
+      generarAlerta("ALT_MAXIMO_LIMPIA");
+    }
+    if (ALT_MINIMO_DESCARTE == true) {
+      generarAlerta("ALT_MINIMO_DESCARTE");
+    }
+    if (ALT_MAXIMO_DESCARTE == true) {
+      generarAlerta("ALT_MAXIMO_DESCARTE");
+    }
   }
 
   if (!analizarAgua())
   {
-    //Algo falló.
+    //Algo falló. Alertar
+    if (ERR_MEDICION_TEMPERATURA_AGUA == true) {
+      generarAlerta("ERR_MEDICION_TEMPERATURA_AGUA");
+    }
+    else if (ERR_MEDICION_PH == true) {
+      generarAlerta("ERR_MEDICION_PH");
+    }
+    else if (ERR_MEDICION_CE == true) {
+      generarAlerta("ERR_MEDICION_CE");
+    }
   }
 
   if (!analizarAire())
   {
-    //Algo falló.
+    //Algo falló. Alertar
+    if (ERR_MEDICION_HUMEDAD == true) {
+      //generarAlerta("ERR_MEDICION_HUMEDAD");
+    }
+    else if (ERR_MEDICION_TEMPERATURA == true) {
+      //generarAlerta("ERR_MEDICION_TEMPERATURA");
+    }
+    else if (ERR_MEDICION_CO2 == true) {
+      //generarAlerta("ERR_MEDICION_CO2");
+    }
   }
+
+
+
 
   //Se imprimen las variables
   Serial.print("Humedad: ");
@@ -303,7 +435,7 @@ void loop() {
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
-
+//---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES de encendido y apagado de dispositivos
 //---------------------------------------------------------------------------------------------------------------//
 //BombaEnfriadoPinRELE1
@@ -497,16 +629,55 @@ float medirNivel(char caso[])
 
 continua:
 
-  digitalWrite(PinTrig, LOW);
-  delayMicroseconds(2);
+  //  digitalWrite(PinTrig, LOW);
+  //  delayMicroseconds(2);
+  //
+  //  digitalWrite(PinTrig, HIGH);
+  //  delayMicroseconds(10);
+  //
+  //  float tiempo = pulseIn(PinEcho, HIGH);
+  //  float distancia = (tiempo / 2) / 29.1;
+  //  return distancia;
 
-  digitalWrite(PinTrig, HIGH);
-  delayMicroseconds(10);
+  float distancias[CANTIDAD_MEDICIONES], sum = 0, promedio = 0;
+  for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
+    distancias[i] = 0;
 
-  float tiempo = pulseIn(PinEcho, HIGH);
-  float distancia = (tiempo / 2) / 29.1;
+  for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
+  {
+    digitalWrite(PinTrig, LOW);
+    delayMicroseconds(2);
+    digitalWrite(PinTrig, HIGH);
+    delayMicroseconds(10);
 
-  return distancia;
+    float tiempo = pulseIn(PinEcho, HIGH);
+    float distancia = (tiempo / 2) / 29.1;
+    //distancia = 340m/s*tiempo;
+
+    Serial.println(distancia);
+    distancias[i] = distancia;
+    delay(10);
+  }
+  int cant = 0, CantCeros = 0;
+
+  for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
+  {
+    if ( distancias [i] != 0 )
+    {
+      sum = sum + distancias[i];
+      cant++;
+    }
+    else
+      CantCeros++;
+  }
+  if ( CantCeros >= 2  )
+    return 0;//Serial.print("Falla en sensor / desconectado ");
+
+  //Serial.println(CantCeros);
+
+  promedio = sum / cant;
+
+  return promedio;
 }
 //---------------------------------------------------------------------------------------------------------------//
 float medirHumedad()
@@ -561,52 +732,46 @@ float medirCO2()
 //---------------------------------------------------------------------------------------------------------------//
 bool analizarAire()
 {
-  VENTILAR = false;
+  CMD_VENTILAR = false;
 
   //------------------------------------------------------- Humedad
   medicionHumedad = medirHumedad();
 
-  if (medicionHumedad == -10000)
-  {
+  if (medicionHumedad == -10000) {
     medicionHumedad = 0.0;
     ERR_MEDICION_HUMEDAD = true;
-    //return false;
+    return false;
   }
-  else if (medicionHumedad < humedadMinParametro || medicionHumedad > humedadMaxParametro)
-  { //Se requiere alguna accion.
+  else if (medicionHumedad < humedadMinParametro || medicionHumedad > humedadMaxParametro) { //Se requiere alguna accion.
     //encenderVentiladores();
-    VENTILAR = true;
+    CMD_VENTILAR = true;
   }
   ERR_MEDICION_HUMEDAD = false;
 
   //-------------------------------------------------------TMP
   medicionTemperaturaAire = medirTemperatura();
 
-  if (medicionTemperaturaAire == -10000)
-  {
+  if (medicionTemperaturaAire == -10000) {
     medicionTemperaturaAire = 0.0;
     ERR_MEDICION_TEMPERATURA = true;
-    //return false;
+    return false;
   }
-  else if (medicionTemperaturaAire < temperaturaAireMinParametro || medicionTemperaturaAire > temperaturaAireMaxParametro)
-  { //Se requiere alguna accion.
+  else if (medicionTemperaturaAire < temperaturaAireMinParametro || medicionTemperaturaAire > temperaturaAireMaxParametro) { //Se requiere alguna accion.
     //encenderVentiladores();
-    VENTILAR = true;
+    CMD_VENTILAR = true;
   }
   ERR_MEDICION_TEMPERATURA = false;
 
   //-------------------------------------------------------CO2
   medicionCO2 = medirCO2();
-  if (medicionCO2 > 10000)
-  {
+  if (medicionCO2 > 10000) {
     medicionCO2 = 0.0;
     ERR_MEDICION_CO2 = true;
-    //return false;
+    return false;
   }
-  else  if (medicionCO2 < co2MinParametro || medicionCO2 > co2MaxParametro)
-  { //Se requiere alguna accion.
+  else if (medicionCO2 < co2MinParametro || medicionCO2 > co2MaxParametro) { //Se requiere alguna accion.
     //encenderVentiladores();
-    VENTILAR = true;
+    CMD_VENTILAR = true;
   }
   ERR_MEDICION_CO2 = false;
 
@@ -618,28 +783,23 @@ bool analizarAgua()
   //-------------------------------------------------------TMP
   medicionTemperaturaAgua = medirTemperaturaAgua();
 
-  if (medicionTemperaturaAgua < -100)
-  {
+  if (medicionTemperaturaAgua < -100) {
     medicionTemperaturaAgua = 0.0;
     ERR_MEDICION_TEMPERATURA_AGUA = true;
-    //return false;
+    return false;
   }
-  else if (medicionTemperaturaAgua < temperaturaAguaMinParametro || medicionTemperaturaAgua > temperaturaAguaMaxParametro)
-  { //Se requiere alguna accion.
+  else if (medicionTemperaturaAgua < temperaturaAguaMinParametro || medicionTemperaturaAgua > temperaturaAguaMaxParametro) { //Se requiere alguna accion.
     //encenderEnfriador();
-    if (medicionTemperaturaAgua < temperaturaAguaMinParametro)
-    { //Bajar temperatura.
+    if (medicionTemperaturaAgua < temperaturaAguaMinParametro) { //Bajar temperatura.
       CMD_BAJAR_TEMPERATURA_AGUA = true;
       CMD_SUBIR_TEMPERATURA_AGUA = false;
     }
-    else if (medicionTemperaturaAgua > temperaturaAguaMaxParametro)
-    { //Subir temperaruta.
+    else if (medicionTemperaturaAgua > temperaturaAguaMaxParametro) { //Subir temperaruta.
       CMD_BAJAR_TEMPERATURA_AGUA = false;
       CMD_SUBIR_TEMPERATURA_AGUA = true;
     }
   }
-  else
-  { //No hace nada.
+  else { //No hace nada.
     CMD_BAJAR_TEMPERATURA_AGUA = false;
     CMD_SUBIR_TEMPERATURA_AGUA = false;
   }
@@ -648,35 +808,29 @@ bool analizarAgua()
   //-------------------------------------------------------PH
   medicionPH = medirPH();
 
-  if (medicionPH == 0 )
-  { //Sensor desconectado o apagado.
+  if (medicionPH == 0 ) { //Sensor desconectado o apagado.
     medicionPH = 0.0;
     ERR_MEDICION_PH = true;
-    //return false;
+    return false;
   }
-  else if (medicionPH < 0 )
-  { //Sonda desconectada.
+  else if (medicionPH < 0 ) { //Sonda desconectada.
     medicionPH = 0.0;
     ERR_MEDICION_PH = true;
-    //return false;
+    return false;
   }
-  else if (medicionPH < PHminParametro || medicionPH > PHmaxParametro)
-  { //Se requiere alguna accion.
-    if (medicionPH < PHminParametro)
-    {
+  else if (medicionPH < PHminParametro || medicionPH > PHmaxParametro) { //Se requiere alguna accion.
+    if (medicionPH < PHminParametro) {
       //encenderPHmas();
       CMD_SUBIR_PH = true;
       CMD_BAJAR_PH = false;
     }
-    else if (medicionPH > PHmaxParametro)
-    {
+    else if (medicionPH > PHmaxParametro) {
       //encenderPHmenos();
       CMD_SUBIR_PH = false;
       CMD_BAJAR_PH = true;
     }
   }
-  else
-  { //No hace nada.
+  else { //No hace nada.
     CMD_SUBIR_PH = false;
     CMD_BAJAR_PH = false;
   }
@@ -685,31 +839,26 @@ bool analizarAgua()
   //-------------------------------------------------------CE
   medicionCE = medirCE();
 
-  if (medicionCE == 0 )
-  { //Sensor desconectado o apagado.
+  if (medicionCE == 0 ) { //Sensor desconectado o apagado.
     medicionCE = 0.0;
     ERR_MEDICION_CE = true;
-    //return false;
+    return false;
   }
-  else if (medicionCE < ceMinParametro || medicionCE > ceMaxParametro)
-  { //Se requiere alguna accion.
-    if (medicionCE < ceMinParametro)
-    {
+  else if (medicionCE < ceMinParametro || medicionCE > ceMaxParametro) { //Se requiere alguna accion.
+    if (medicionCE < ceMinParametro)    {
       //encenderPHmas();
       CMD_ADD_NUTRIENTE_A = true;
       CMD_ADD_NUTRIENTE_B = true;
       CMD_ADD_AGUA = false;
     }
-    else if (medicionPH > ceMaxParametro)
-    {
+    else if (medicionPH > ceMaxParametro) {
       //encenderPHmenos();
       CMD_ADD_NUTRIENTE_A = false;
       CMD_ADD_NUTRIENTE_B = false;
       CMD_ADD_AGUA = true;
     }
   }
-  else
-  { //No hace nada.
+  else  { //No hace nada.
     CMD_ADD_NUTRIENTE_A = false;
     CMD_ADD_NUTRIENTE_B = false;
     CMD_ADD_AGUA = false;
@@ -721,25 +870,110 @@ bool analizarAgua()
 //---------------------------------------------------------------------------------------------------------------//
 bool controlarNivelesPH()
 {
+  ERR_MEDICION_NIVEL_PH_MAS = false;
+  ALT_MINIMO_PH_MAS = false;
   medicionNivelPHmas = medirNivel("medicionNivelPHmas");
+  if (medicionNivelPHmas == 0) {
+    ERR_MEDICION_NIVEL_PH_MAS = true;
+    return false;
+  }
+  else if (medicionNivelPHmas > minimoNivelPHmas) {
+    ALT_MINIMO_PH_MAS = true;
+  }
+
+  ERR_MEDICION_NIVEL_PH_MEN = false;
+  ALT_MINIMO_PH_MEN = false;
   medicionNivelPHmenos = medirNivel("medicionNivelPHmenos");
+  if (medicionNivelPHmenos == 0) {
+    ERR_MEDICION_NIVEL_PH_MEN = true;
+    return false;
+  }
+  else if (medicionNivelPHmenos > minimoNivelPHmenos) {
+    ALT_MINIMO_PH_MEN = true;
+  }
 
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool controlarNivelesNutrintes()
 {
-  medicionNivelNutrienteA = medirNivel("medicionNivelNutrie");
+  ERR_MEDICION_NIVEL_NUT_A = false;
+  ALT_MINIMO_NUT_A = false;
+  medicionNivelNutrienteA = medirNivel("medicionNivelNutrienteA");
+  if (medicionNivelNutrienteA == 0) {
+    ERR_MEDICION_NIVEL_NUT_A = true;
+    return false;
+  }
+  else if (medicionNivelNutrienteA > minimoNivelNutrienteA) {
+    ALT_MINIMO_NUT_A = true;
+  }
+
+  ERR_MEDICION_NIVEL_NUT_B = false;
+  ALT_MINIMO_NUT_B = false;
   medicionNivelNutrienteB = medirNivel("medicionNivelNutrienteB");
+  if (medicionNivelNutrienteB == 0) {
+    ERR_MEDICION_NIVEL_NUT_B = true;
+    return false;
+  }
+  else if (medicionNivelNutrienteB > minimoNivelNutrienteB) {
+    ALT_MINIMO_NUT_B = true;
+  }
 
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool controlarNivelesTanques()
 {
+  ERR_MEDICION_NIVEL_LIMPIA = false;
   medicionNivelTanqueAguaLimpia = medirNivel("medicionNivelTanqueAguaLimpia");
+  if (medicionNivelTanqueAguaLimpia == 0) {
+    ERR_MEDICION_NIVEL_LIMPIA = true;
+    return false;
+  }
+  else if (medicionNivelTanqueAguaLimpia > minimoNivelTanqueAguaLimpia) {
+    ALT_MINIMO_LIMPIA = true;
+  }
+  else if (medicionNivelTanqueAguaLimpia < maximoNivelTanqueAguaLimpia) {
+    ALT_MAXIMO_LIMPIA = true;
+  }
+  else {
+    ALT_MINIMO_LIMPIA = false;
+    ALT_MAXIMO_LIMPIA = false;
+  }
+
+  ERR_MEDICION_NIVEL_DESCARTE = false;
   medicionNivelTanqueDesechable = medirNivel("medicionNivelTanqueDesechable");
+  if (medicionNivelTanqueDesechable == 0) {
+    ERR_MEDICION_NIVEL_DESCARTE = true;
+    return false;
+  }
+  else if (medicionNivelTanqueDesechable > minimoNivelTanqueDesechable) {
+    ALT_MINIMO_DESCARTE = true;
+  }
+  else if (medicionNivelTanqueDesechable < maximoNivelTanqueDesechable) {
+    ALT_MAXIMO_DESCARTE = true;
+  }
+  else {
+    ALT_MINIMO_DESCARTE = false;
+    ALT_MAXIMO_DESCARTE = false;
+  }
+
+  ERR_MEDICION_NIVEL_PRINCIPAL = false;
   medicionNivelTanquePrincial = medirNivel("medicionNivelTanquePrincial");
+  if (medicionNivelTanqueAguaLimpia == 0) {
+    ERR_MEDICION_NIVEL_PRINCIPAL = true;
+    return false;
+  }
+  else if (medicionNivelTanqueAguaLimpia > minimoNivelTanquePrincial) {
+    ALT_MINIMO_PRINCIPAL = true;
+  }
+  else if (medicionNivelTanqueAguaLimpia < maximoNivelTanquePrincial) {
+    ALT_MAXIMO_PRINCIPAL = true;
+  }
+  else {
+    ALT_MINIMO_PRINCIPAL = false;
+    ALT_MAXIMO_PRINCIPAL = false;
+  }
 
   return true;
 }
@@ -747,6 +981,7 @@ bool controlarNivelesTanques()
 //************************************************************** FUNCIONES de control >
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266
+//---------------------------------------------------------------------------------------------------------------//
 void serialEvent() //Funcion que captura los eventos del puerto serial.
 {
   static int state = 0;
@@ -992,4 +1227,13 @@ bool  checkPackageComplete(void)
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >
+//---------------------------------------------------------------------------------------------------------------//
+//************************************************************** < FUNCIONES para la generacion de alertas
+//---------------------------------------------------------------------------------------------------------------//
+bool generarAlerta(String mensaje)
+{
+  Serial.println(mensaje);
+}
+//---------------------------------------------------------------------------------------------------------------//
+//************************************************************** FUNCIONES para la generacion de alertas >
 //---------------------------------------------------------------------------------------------------------------//
