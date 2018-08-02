@@ -70,6 +70,8 @@ bool ALT_MINIMO_DESCARTE = false;
 bool ALT_MAXIMO_DESCARTE = false;
 
 # define CANTIDAD_MEDICIONES 10
+# define TIEMPO_GOTEO 5 //segundos x cada ml
+# define TIEMPO_BOMBA 10 //segundos x cada litro
 
 //************************** pH del agua *****************************************
 #define pinPH A1 //Seleccionamos el pin que usara el sensor de pH.
@@ -196,20 +198,20 @@ void setup() {
   sensorDS18B20.begin(); //Se inicia el sensor DS18B20.
 
   //********* SENSORES
-  pinMode(pinNivel1, INPUT); //nivel de nutrientes A.
-  pinMode(pinNivel2, OUTPUT); //nivel de nutrientes A.
-  pinMode(pinNivel3, INPUT); //nivel de nutrientes B.
-  pinMode(pinNivel4, OUTPUT); //nivel de nutrientes B.
-  pinMode(pinNivel5, INPUT); //nivel de ph+.
-  pinMode(pinNivel6, OUTPUT); //nivel de ph+.
-  pinMode(pinNivel7, INPUT); //nivel de ph-.
-  pinMode(pinNivel8, OUTPUT); //nivel de ph-.
-  pinMode(pinNivel9, INPUT); //agua limpia.
-  pinMode(pinNivel10, OUTPUT); //agua limpia.
-  pinMode(pinNivel11, INPUT); //agua descartada.
-  pinMode(pinNivel12, OUTPUT); //agua descartada.
-  pinMode(pinNivel13, INPUT); //tanque principal.
-  pinMode(pinNivel14, OUTPUT); //tanque principal.
+  pinMode(pinNivel1, OUTPUT); //nivel de nutrientes A.
+  pinMode(pinNivel2, INPUT); //nivel de nutrientes A.
+  pinMode(pinNivel3, OUTPUT); //nivel de nutrientes B.
+  pinMode(pinNivel4, INPUT); //nivel de nutrientes B.
+  pinMode(pinNivel5, OUTPUT); //nivel de ph+.
+  pinMode(pinNivel6, INPUT); //nivel de ph+.
+  pinMode(pinNivel7, OUTPUT); //nivel de ph-.
+  pinMode(pinNivel8, INPUT); //nivel de ph-.
+  pinMode(pinNivel9, OUTPUT); //agua limpia.
+  pinMode(pinNivel10, INPUT); //agua limpia.
+  pinMode(pinNivel11, OUTPUT); //agua descartada.
+  pinMode(pinNivel12, INPUT); //agua descartada.
+  pinMode(pinNivel13, OUTPUT); //tanque principal.
+  pinMode(pinNivel14, INPUT); //tanque principal.
 
   pinMode(pinPH, INPUT); //ph.
   pinMode(pinCE, INPUT); //ce.
@@ -281,7 +283,7 @@ void loop()
     if (ERR_MEDICION_NIVEL_PH_MAS == true) {
       generarAlerta("ERR_MEDICION_NIVEL_PH_MAS");
     }
-    else if (ERR_MEDICION_NIVEL_PH_MEN == true) {
+    if (ERR_MEDICION_NIVEL_PH_MEN == true) {
       generarAlerta("ERR_MEDICION_NIVEL_PH_MEN");
     }
   }
@@ -302,7 +304,7 @@ void loop()
     if (ERR_MEDICION_NIVEL_NUT_A == true) {
       generarAlerta("ERR_MEDICION_NIVEL_NUT_A");
     }
-    else if (ERR_MEDICION_NIVEL_NUT_B == true) {
+    if (ERR_MEDICION_NIVEL_NUT_B == true) {
       generarAlerta("ERR_MEDICION_NIVEL_NUT_B");
     }
   }
@@ -323,10 +325,10 @@ void loop()
     if (ERR_MEDICION_NIVEL_PRINCIPAL == true) {
       generarAlerta("ERR_MEDICION_NIVEL_PRINCIPAL");
     }
-    else if (ERR_MEDICION_NIVEL_LIMPIA == true) {
+    if (ERR_MEDICION_NIVEL_LIMPIA == true) {
       generarAlerta("ERR_MEDICION_NIVEL_LIMPIA");
     }
-    else if (ERR_MEDICION_NIVEL_DESCARTE == true) {
+    if (ERR_MEDICION_NIVEL_DESCARTE == true) {
       generarAlerta("ERR_MEDICION_NIVEL_DESCARTE");
     }
   }
@@ -359,26 +361,97 @@ void loop()
     if (ERR_MEDICION_TEMPERATURA_AGUA == true) {
       generarAlerta("ERR_MEDICION_TEMPERATURA_AGUA");
     }
-    else if (ERR_MEDICION_PH == true) {
+    if (ERR_MEDICION_PH == true) {
       generarAlerta("ERR_MEDICION_PH");
     }
-    else if (ERR_MEDICION_CE == true) {
+    if (ERR_MEDICION_CE == true) {
       generarAlerta("ERR_MEDICION_CE");
     }
+  }
+  else
+  {
+    if (CMD_BAJAR_TEMPERATURA_AGUA)
+    {
+      encenderEnfriador();
+      apagarCalentador();
+    }
+    if (CMD_SUBIR_TEMPERATURA_AGUA)
+    {
+      apagarEnfriador();
+      encenderCalentador();
+    }
+
+    if (!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA)
+    {
+      apagarCalentador();
+      apagarEnfriador();
+    }
+
+    if (CMD_SUBIR_PH)
+    {
+      encenderPHmas();
+      delay(TIEMPO_GOTEO);
+      apagarPHmas();
+      apagarPHmenos();
+    }
+
+    if (CMD_BAJAR_PH)
+    {
+      encenderPHmenos();
+      delay(TIEMPO_GOTEO);
+      apagarPHmenos();
+      apagarPHmas();
+    }
+
+    if (!CMD_SUBIR_PH && !CMD_BAJAR_PH)
+    {
+      apagarPHmas();
+      apagarPHmenos();
+    }
+
+    if (CMD_ADD_NUTRIENTE_A)
+    {
+      encenderNutrientesA();
+      delay(TIEMPO_GOTEO);
+      apagarBombaNutrientesA();
+      apagarBombaNutrientesB();
+    }
+    if (CMD_ADD_NUTRIENTE_B)
+    {
+      encenderNutrientesB();
+      delay(TIEMPO_GOTEO);
+      apagarBombaNutrientesB();
+      apagarBombaNutrientesA();
+    }
+    if (!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B)
+    {
+      apagarBombaNutrientesA();
+      apagarBombaNutrientesB();
+    }
+
+    if (CMD_ADD_AGUA)
+    {
+
+    }
+
   }
 
   if (!analizarAire())
   {
     //Algo falló. Alertar
     if (ERR_MEDICION_HUMEDAD == true) {
-      //generarAlerta("ERR_MEDICION_HUMEDAD");
+      generarAlerta("ERR_MEDICION_HUMEDAD");
     }
-    else if (ERR_MEDICION_TEMPERATURA == true) {
-      //generarAlerta("ERR_MEDICION_TEMPERATURA");
+    if (ERR_MEDICION_TEMPERATURA == true) {
+      generarAlerta("ERR_MEDICION_TEMPERATURA");
     }
-    else if (ERR_MEDICION_CO2 == true) {
-      //generarAlerta("ERR_MEDICION_CO2");
+    if (ERR_MEDICION_CO2 == true) {
+      generarAlerta("ERR_MEDICION_CO2");
     }
+  }
+  else
+  {
+    //CMD_VENTILAR
   }
 
 
@@ -654,7 +727,7 @@ continua:
     float distancia = (tiempo / 2) / 29.1;
     //distancia = 340m/s*tiempo;
 
-    Serial.println(distancia);
+    //Serial.println(distancia);
     distancias[i] = distancia;
     delay(10);
   }
@@ -676,7 +749,7 @@ continua:
   //Serial.println(CantCeros);
 
   promedio = sum / cant;
-
+  //Serial.println(promedio);
   return promedio;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -736,57 +809,59 @@ bool analizarAire()
 
   //------------------------------------------------------- Humedad
   medicionHumedad = medirHumedad();
-
+  ERR_MEDICION_HUMEDAD = false;
   if (medicionHumedad == -10000) {
     medicionHumedad = 0.0;
     ERR_MEDICION_HUMEDAD = true;
-    return false;
+    //return false;
   }
   else if (medicionHumedad < humedadMinParametro || medicionHumedad > humedadMaxParametro) { //Se requiere alguna accion.
     //encenderVentiladores();
     CMD_VENTILAR = true;
   }
-  ERR_MEDICION_HUMEDAD = false;
+
 
   //-------------------------------------------------------TMP
   medicionTemperaturaAire = medirTemperatura();
-
+  ERR_MEDICION_TEMPERATURA = false;
   if (medicionTemperaturaAire == -10000) {
     medicionTemperaturaAire = 0.0;
     ERR_MEDICION_TEMPERATURA = true;
-    return false;
+    //return false;
   }
   else if (medicionTemperaturaAire < temperaturaAireMinParametro || medicionTemperaturaAire > temperaturaAireMaxParametro) { //Se requiere alguna accion.
     //encenderVentiladores();
     CMD_VENTILAR = true;
   }
-  ERR_MEDICION_TEMPERATURA = false;
+
 
   //-------------------------------------------------------CO2
   medicionCO2 = medirCO2();
+  ERR_MEDICION_CO2 = false;
   if (medicionCO2 > 10000) {
     medicionCO2 = 0.0;
     ERR_MEDICION_CO2 = true;
-    return false;
+    //return false;
   }
   else if (medicionCO2 < co2MinParametro || medicionCO2 > co2MaxParametro) { //Se requiere alguna accion.
     //encenderVentiladores();
     CMD_VENTILAR = true;
   }
-  ERR_MEDICION_CO2 = false;
-
+  if (ERR_MEDICION_HUMEDAD || ERR_MEDICION_TEMPERATURA || ERR_MEDICION_CO2)
+    return false;
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool analizarAgua()
 {
   //-------------------------------------------------------TMP
-  medicionTemperaturaAgua = medirTemperaturaAgua();
 
+  medicionTemperaturaAgua = medirTemperaturaAgua();
+  ERR_MEDICION_TEMPERATURA_AGUA = false;
   if (medicionTemperaturaAgua < -100) {
     medicionTemperaturaAgua = 0.0;
     ERR_MEDICION_TEMPERATURA_AGUA = true;
-    return false;
+    //return false;
   }
   else if (medicionTemperaturaAgua < temperaturaAguaMinParametro || medicionTemperaturaAgua > temperaturaAguaMaxParametro) { //Se requiere alguna accion.
     //encenderEnfriador();
@@ -803,20 +878,19 @@ bool analizarAgua()
     CMD_BAJAR_TEMPERATURA_AGUA = false;
     CMD_SUBIR_TEMPERATURA_AGUA = false;
   }
-  ERR_MEDICION_TEMPERATURA_AGUA = false;
 
   //-------------------------------------------------------PH
   medicionPH = medirPH();
-
+  ERR_MEDICION_PH = false;
   if (medicionPH == 0 ) { //Sensor desconectado o apagado.
     medicionPH = 0.0;
     ERR_MEDICION_PH = true;
-    return false;
+    //return false;
   }
   else if (medicionPH < 0 ) { //Sonda desconectada.
     medicionPH = 0.0;
     ERR_MEDICION_PH = true;
-    return false;
+    //return false;
   }
   else if (medicionPH < PHminParametro || medicionPH > PHmaxParametro) { //Se requiere alguna accion.
     if (medicionPH < PHminParametro) {
@@ -834,15 +908,14 @@ bool analizarAgua()
     CMD_SUBIR_PH = false;
     CMD_BAJAR_PH = false;
   }
-  ERR_MEDICION_PH = false;
 
   //-------------------------------------------------------CE
   medicionCE = medirCE();
-
+  ERR_MEDICION_CE = false;
   if (medicionCE == 0 ) { //Sensor desconectado o apagado.
     medicionCE = 0.0;
     ERR_MEDICION_CE = true;
-    return false;
+    //return false;
   }
   else if (medicionCE < ceMinParametro || medicionCE > ceMaxParametro) { //Se requiere alguna accion.
     if (medicionCE < ceMinParametro)    {
@@ -863,72 +936,82 @@ bool analizarAgua()
     CMD_ADD_NUTRIENTE_B = false;
     CMD_ADD_AGUA = false;
   }
-  ERR_MEDICION_CE = false;
 
+  if (ERR_MEDICION_TEMPERATURA_AGUA || ERR_MEDICION_PH || ERR_MEDICION_CE)
+    return false;
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool controlarNivelesPH()
 {
+  //------------------------------------------------------- PH+
   ERR_MEDICION_NIVEL_PH_MAS = false;
   ALT_MINIMO_PH_MAS = false;
   medicionNivelPHmas = medirNivel("medicionNivelPHmas");
   if (medicionNivelPHmas == 0) {
     ERR_MEDICION_NIVEL_PH_MAS = true;
-    return false;
+    //return false;
   }
   else if (medicionNivelPHmas > minimoNivelPHmas) {
     ALT_MINIMO_PH_MAS = true;
   }
-
+  //------------------------------------------------------- PH-
   ERR_MEDICION_NIVEL_PH_MEN = false;
   ALT_MINIMO_PH_MEN = false;
   medicionNivelPHmenos = medirNivel("medicionNivelPHmenos");
   if (medicionNivelPHmenos == 0) {
     ERR_MEDICION_NIVEL_PH_MEN = true;
-    return false;
+    //return false;
   }
   else if (medicionNivelPHmenos > minimoNivelPHmenos) {
     ALT_MINIMO_PH_MEN = true;
   }
+
+  if (ERR_MEDICION_NIVEL_PH_MAS || ERR_MEDICION_NIVEL_PH_MEN)
+    return false;
 
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool controlarNivelesNutrintes()
 {
+  //------------------------------------------------------- Nut A
   ERR_MEDICION_NIVEL_NUT_A = false;
   ALT_MINIMO_NUT_A = false;
   medicionNivelNutrienteA = medirNivel("medicionNivelNutrienteA");
   if (medicionNivelNutrienteA == 0) {
     ERR_MEDICION_NIVEL_NUT_A = true;
-    return false;
+    //return false;
   }
   else if (medicionNivelNutrienteA > minimoNivelNutrienteA) {
     ALT_MINIMO_NUT_A = true;
   }
 
+  //------------------------------------------------------- Nut B
   ERR_MEDICION_NIVEL_NUT_B = false;
   ALT_MINIMO_NUT_B = false;
   medicionNivelNutrienteB = medirNivel("medicionNivelNutrienteB");
   if (medicionNivelNutrienteB == 0) {
     ERR_MEDICION_NIVEL_NUT_B = true;
-    return false;
+    //return false;
   }
   else if (medicionNivelNutrienteB > minimoNivelNutrienteB) {
     ALT_MINIMO_NUT_B = true;
   }
+  if (ERR_MEDICION_NIVEL_NUT_A || ERR_MEDICION_NIVEL_NUT_B)
+    return false;
 
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool controlarNivelesTanques()
 {
+  //------------------------------------------------------- Agua limpia
   ERR_MEDICION_NIVEL_LIMPIA = false;
   medicionNivelTanqueAguaLimpia = medirNivel("medicionNivelTanqueAguaLimpia");
   if (medicionNivelTanqueAguaLimpia == 0) {
     ERR_MEDICION_NIVEL_LIMPIA = true;
-    return false;
+    //return false;
   }
   else if (medicionNivelTanqueAguaLimpia > minimoNivelTanqueAguaLimpia) {
     ALT_MINIMO_LIMPIA = true;
@@ -941,11 +1024,12 @@ bool controlarNivelesTanques()
     ALT_MAXIMO_LIMPIA = false;
   }
 
+  //------------------------------------------------------- Agua descarte
   ERR_MEDICION_NIVEL_DESCARTE = false;
   medicionNivelTanqueDesechable = medirNivel("medicionNivelTanqueDesechable");
   if (medicionNivelTanqueDesechable == 0) {
     ERR_MEDICION_NIVEL_DESCARTE = true;
-    return false;
+    //return false;
   }
   else if (medicionNivelTanqueDesechable > minimoNivelTanqueDesechable) {
     ALT_MINIMO_DESCARTE = true;
@@ -958,11 +1042,12 @@ bool controlarNivelesTanques()
     ALT_MAXIMO_DESCARTE = false;
   }
 
+  //------------------------------------------------------- Tanque principal
   ERR_MEDICION_NIVEL_PRINCIPAL = false;
   medicionNivelTanquePrincial = medirNivel("medicionNivelTanquePrincial");
   if (medicionNivelTanqueAguaLimpia == 0) {
     ERR_MEDICION_NIVEL_PRINCIPAL = true;
-    return false;
+    //return false;
   }
   else if (medicionNivelTanqueAguaLimpia > minimoNivelTanquePrincial) {
     ALT_MINIMO_PRINCIPAL = true;
@@ -975,6 +1060,8 @@ bool controlarNivelesTanques()
     ALT_MAXIMO_PRINCIPAL = false;
   }
 
+  if (ERR_MEDICION_NIVEL_LIMPIA || ERR_MEDICION_NIVEL_DESCARTE || ERR_MEDICION_NIVEL_PRINCIPAL)
+    return false;
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
