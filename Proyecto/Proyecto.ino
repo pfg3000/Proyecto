@@ -71,7 +71,8 @@ bool ALT_MAXIMO_DESCARTE = false;
 
 # define CANTIDAD_MEDICIONES 10
 # define TIEMPO_GOTEO 5 //segundos x cada ml
-# define TIEMPO_BOMBA 10 //segundos x cada litro
+# define TIEMPO_BOMBA_AGUA 10 //segundos x cada litro
+# define CM_POR_LITRO 2 //cm x cada litro
 
 //************************** pH del agua *****************************************
 #define pinPH A1 //Seleccionamos el pin que usara el sensor de pH.
@@ -346,10 +347,10 @@ void loop()
     }
     if (ALT_MAXIMO_LIMPIA == true) {
       generarAlerta("ALT_MAXIMO_LIMPIA");
-    }
+    }//No nos interesa
     if (ALT_MINIMO_DESCARTE == true) {
       generarAlerta("ALT_MINIMO_DESCARTE");
-    }
+    }//No nos interesa
     if (ALT_MAXIMO_DESCARTE == true) {
       generarAlerta("ALT_MAXIMO_DESCARTE");
     }
@@ -431,9 +432,41 @@ void loop()
 
     if (CMD_ADD_AGUA)
     {
-
+      if (maximoNivelTanquePrincial > medicionNivelTanquePrincial)
+      { //Solo agrego agua limpia.
+        float cantBajo = maximoNivelTanquePrincial - medicionNivelTanquePrincial;
+        if (medicionNivelTanqueAguaLimpia > cantBajo)
+        {
+          encenderLlenado();
+          delay((cantBajo / CM_POR_LITRO) * TIEMPO_BOMBA_AGUA);
+          apagarLlenado();
+        }
+        else
+        {
+          generarAlerta("CMD_ADD_AGUA1");//Tanque agua limpia, agua insuficiente.
+        }
+      }
+      else
+      { //Descarto un poco y agrego misma cantidad.
+        float cantBajo = maximoNivelTanquePrincial - medicionNivelTanquePrincial;
+        if (medicionNivelTanqueAguaLimpia > cantBajo && (medicionNivelTanqueDesechable + cantBajo) < maximoNivelTanqueDesechable)
+        {
+          encenderBombaVaciado();
+          delay((cantBajo / CM_POR_LITRO) * TIEMPO_BOMBA_AGUA);
+          apagarBombaVaciado();
+          encenderLlenado();
+          delay((cantBajo / CM_POR_LITRO) * TIEMPO_BOMBA_AGUA);
+          apagarLlenado();
+        }
+        else
+        {
+          if (medicionNivelTanqueAguaLimpia > cantBajo)
+            generarAlerta("CMD_ADD_AGUA1");//Tanque agua limpia, agua insuficiente.
+          if ((medicionNivelTanqueDesechable + cantBajo) < maximoNivelTanqueDesechable)
+            generarAlerta("CMD_ADD_AGUA2");//Tanque descarte con espacio insuficiente.
+        }
+      }
     }
-
   }
 
   if (!analizarAire())
