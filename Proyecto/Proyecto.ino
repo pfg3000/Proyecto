@@ -3,6 +3,9 @@
 #include <DallasTemperature.h>
 #include "MQ135.h" //Cargamos la librería MQ135
 
+#include <Time.h>
+#include <TimeAlarms.h>
+
 #define DEBUG
 //********************************** PROTOCOLO DE COMUNICACION *****************************
 #ifdef  DEBUG
@@ -139,6 +142,7 @@ DallasTemperature sensorDS18B20(&oneWireObjeto);//Inicializamos la clase.
 //*********************************************************************************** < VARIABLES PARA MEDICIONES
 //Variables para Luz
 float hsLuzParametro = 0.0;
+String horaInicioLuz = "21:00";
 
 //Variables Medición de PH
 float medicionPH = 0.0; //Valor medido
@@ -187,6 +191,7 @@ float minimoNivelTanquePrincial = 0.0;
 float maximoNivelTanquePrincial = 0.0;
 float minimoNivelTanqueAguaLimpia = 0.0;
 float maximoNivelTanqueAguaLimpia = 0.0;
+float pisoTanqueAguaLimpia = 0.0;
 float minimoNivelTanqueDesechable = 0.0;
 float maximoNivelTanqueDesechable = 0.0;
 
@@ -240,6 +245,13 @@ void setup() {
 
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
+
+  /*
+  Tomamos el parametro de horaInicioLuz y de hsLuzParametro
+  seteamos el reloj con la hora del reloj RTC
+  luego seteamos la alarma inicial y la alarma final para encender y apagar las luces.
+  cambiamos el delay(2000); del loop por Alarm.delay(1000);
+  */
 }
 
 void loop()
@@ -274,6 +286,7 @@ void loop()
   minimoNivelTanquePrincial = 10;
   maximoNivelTanquePrincial = 5;
   minimoNivelTanqueAguaLimpia = 10;
+  pisoTanqueAguaLimpia = 15;
   maximoNivelTanqueAguaLimpia = 5;
   minimoNivelTanqueDesechable = 10;
   maximoNivelTanqueDesechable = 5;
@@ -373,23 +386,27 @@ void loop()
   {
     if (CMD_BAJAR_TEMPERATURA_AGUA)
     {
+      generarAlerta("CMD_BAJAR_TEMPERATURA_AGUA");
       encenderEnfriador();
       apagarCalentador();
     }
     if (CMD_SUBIR_TEMPERATURA_AGUA)
     {
+      generarAlerta("CMD_SUBIR_TEMPERATURA_AGUA");
       apagarEnfriador();
       encenderCalentador();
     }
 
     if (!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA)
     {
+      generarAlerta("!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA");
       apagarCalentador();
       apagarEnfriador();
     }
 
     if (CMD_SUBIR_PH)
     {
+      generarAlerta("CMD_SUBIR_PH");
       encenderPHmas();
       delay(TIEMPO_GOTEO);
       apagarPHmas();
@@ -398,6 +415,7 @@ void loop()
 
     if (CMD_BAJAR_PH)
     {
+      generarAlerta("CMD_BAJAR_PH");
       encenderPHmenos();
       delay(TIEMPO_GOTEO);
       apagarPHmenos();
@@ -406,12 +424,14 @@ void loop()
 
     if (!CMD_SUBIR_PH && !CMD_BAJAR_PH)
     {
+      generarAlerta("!CMD_SUBIR_PH && !CMD_BAJAR_PH");
       apagarPHmas();
       apagarPHmenos();
     }
 
     if (CMD_ADD_NUTRIENTE_A)
     {
+      generarAlerta("CMD_ADD_NUTRIENTE_A");
       encenderNutrientesA();
       delay(TIEMPO_GOTEO);
       apagarBombaNutrientesA();
@@ -419,6 +439,7 @@ void loop()
     }
     if (CMD_ADD_NUTRIENTE_B)
     {
+      generarAlerta("CMD_ADD_NUTRIENTE_B");
       encenderNutrientesB();
       delay(TIEMPO_GOTEO);
       apagarBombaNutrientesB();
@@ -426,12 +447,14 @@ void loop()
     }
     if (!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B)
     {
+      generarAlerta("!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B");
       apagarBombaNutrientesA();
       apagarBombaNutrientesB();
     }
 
     if (CMD_ADD_AGUA)
     {
+      generarAlerta("CMD_ADD_AGUA");
       if (maximoNivelTanquePrincial > medicionNivelTanquePrincial)
       { //Solo agrego agua limpia.
         float cantBajo = maximoNivelTanquePrincial - medicionNivelTanquePrincial;
@@ -449,7 +472,7 @@ void loop()
       else
       { //Descarto un poco y agrego misma cantidad.
         float cantBajo = maximoNivelTanquePrincial - medicionNivelTanquePrincial;
-        if (medicionNivelTanqueAguaLimpia > cantBajo && (medicionNivelTanqueDesechable + cantBajo) < maximoNivelTanqueDesechable)
+        if ((pisoTanqueAguaLimpia - medicionNivelTanqueAguaLimpia) > cantBajo && (medicionNivelTanqueDesechable + cantBajo) < maximoNivelTanqueDesechable)
         {
           encenderBombaVaciado();
           delay((cantBajo / CM_POR_LITRO) * TIEMPO_BOMBA_AGUA);
@@ -460,7 +483,7 @@ void loop()
         }
         else
         {
-          if (medicionNivelTanqueAguaLimpia > cantBajo)
+          if ((pisoTanqueAguaLimpia - medicionNivelTanqueAguaLimpia) > cantBajo)
             generarAlerta("CMD_ADD_AGUA1");//Tanque agua limpia, agua insuficiente.
           if ((medicionNivelTanqueDesechable + cantBajo) < maximoNivelTanqueDesechable)
             generarAlerta("CMD_ADD_AGUA2");//Tanque descarte con espacio insuficiente.
@@ -484,7 +507,10 @@ void loop()
   }
   else
   {
-    //CMD_VENTILAR
+    generarAlerta("CMD_VENTILAR");
+    encenderVentiladores();
+    delay(15000);
+    apagarVentiladores();
   }
 
 
@@ -853,7 +879,6 @@ bool analizarAire()
     CMD_VENTILAR = true;
   }
 
-
   //-------------------------------------------------------TMP
   medicionTemperaturaAire = medirTemperatura();
   ERR_MEDICION_TEMPERATURA = false;
@@ -866,7 +891,6 @@ bool analizarAire()
     //encenderVentiladores();
     CMD_VENTILAR = true;
   }
-
 
   //-------------------------------------------------------CO2
   medicionCO2 = medirCO2();
@@ -888,7 +912,6 @@ bool analizarAire()
 bool analizarAgua()
 {
   //-------------------------------------------------------TMP
-
   medicionTemperaturaAgua = medirTemperaturaAgua();
   ERR_MEDICION_TEMPERATURA_AGUA = false;
   if (medicionTemperaturaAgua < -100) {
@@ -988,6 +1011,7 @@ bool controlarNivelesPH()
   else if (medicionNivelPHmas > minimoNivelPHmas) {
     ALT_MINIMO_PH_MAS = true;
   }
+  
   //------------------------------------------------------- PH-
   ERR_MEDICION_NIVEL_PH_MEN = false;
   ALT_MINIMO_PH_MEN = false;
