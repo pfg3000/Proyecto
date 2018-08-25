@@ -43,8 +43,8 @@ bool   packageComplete = false;
 
 bool CONFIGURAR_ALARMAS = true;
 
-const char *ssid = "PolkoNet";
-const char *password = "polkotite8308!";
+const char *ssid = "Zoylofull";
+const char *password = "1234432112";
 
 unsigned long previousMillis = 0;
 

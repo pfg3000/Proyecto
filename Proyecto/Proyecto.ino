@@ -2,6 +2,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include "MQ135.h" //Cargamos la librería MQ135
+#include <ArduinoJson.h>
 
 #include <Time.h>
 #include <TimeAlarms.h>
@@ -561,6 +562,30 @@ void loop()
 
   Serial.println("");
 
+
+   //crear Json
+  StaticJsonBuffer<280> jsonBuffer;
+  JsonObject& json = jsonBuffer.createObject();
+  json["CantidadHorasLuz"] = hsLuzParametro;
+  json["HoraInicioLuz"] = horaInicioLuz;
+  json["PH_aceptable"] = PhParametro;
+  json["HumedadAire"] = medicionHumedad;
+  json["NivelCO2"] = medicionCO2;
+  json["TemperaturaAire"] = medicionTemperaturaAire;
+  json["TemperaturaAguaTanquePrincipal"] = medicionTemperaturaAgua;
+  json["MedicionPH"] = medicionPH;
+  json["MedicionCE"] = medicionCE;
+  json["Alertas"] = "0000000001";
+  json["Errores"] = "10000000000";
+
+  Serial.println();
+  json.prettyPrintTo(Serial);
+  String dato;
+  json.printTo(dato);
+  
+  Serial.println("");
+  Serial.println("");
+  
   delay(2000); //Se espera 2 segundos para seguir leyendo //datos
 }
 
