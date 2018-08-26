@@ -136,8 +136,8 @@ DHT dht(pinDHT, DHTTYPE); //Se inicia una variable que será usada por Arduino p
 #define LucesPinRELE9 48 //Seleccionamos el pin en el que se conectará Luces Led.
 #define VentiladoresPinRELE10 49 //Seleccionamos el pin en el que se conectará Ventiladores.
 #define CalentadorPinRELE11 50 //Seleccionamos el pin en el que se conectará Calentador.
-#define pinRELE12 51 //Seleccionamos el pin en el que se conectará **Sin Asignar.
-#define pinRELE13 52 //Seleccionamos el pin en el que se conectará **Sin Asignar.
+#define PHpinRELE12 51 //Seleccionamos el pin en el que se conectará el sensor de ph.
+#define CEpinRELE13 52 //Seleccionamos el pin en el que se conectará el sensor de ce.
 #define pinRELE14 53 //Seleccionamos el pin en el que se conectará **Sin Asignar.
 //#define pinRELE15 44 //Seleccionamos el pin en el que se conectará **Sin Asignar.
 //#define pinRELE16 45 //Seleccionamos el pin en el que se conectará **Sin Asignar.
@@ -256,8 +256,8 @@ void setup() {
   pinMode(LucesPinRELE9, OUTPUT); //Luces Led.
   pinMode(VentiladoresPinRELE10, OUTPUT); //Ventiladores.
   pinMode(CalentadorPinRELE11, OUTPUT); //Calentador.
-  pinMode(pinRELE12, OUTPUT); // **Sin Asignar.
-  pinMode(pinRELE13, OUTPUT); // **Sin Asignar.
+  pinMode(PHpinRELE12, OUTPUT); // **pH.
+  pinMode(CEpinRELE13, OUTPUT); // **CE.
   pinMode(pinRELE14, OUTPUT); // **Sin Asignar.
   //  pinMode(pinRELE15, OUTPUT); // **Sin Asignar.
   //  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
@@ -624,6 +624,8 @@ void loop()
 
   Serial.println("");
 
+  String auxArray = generarArrayAlertas();
+  String auxArray2 = generarArrayErrores();
 
   //crear Json
   StaticJsonBuffer<280> jsonBuffer;
@@ -633,12 +635,12 @@ void loop()
   json["CantidadHorasLuz"] = "00";
   json["HoraInicioLuz"] = "00";
   json["PH_aceptable"] = "00";
-  json["HumedadAire"] = floatTOstring(medicionHumedad);
-  json["NivelCO2"] = floatTOstring(medicionCO2);
-  json["TemperaturaAire"] = floatTOstring(medicionTemperaturaAire);
-  json["TemperaturaAguaTanquePrincipal"] = floatTOstring(medicionTemperaturaAgua);
-  json["MedicionPH"] = floatTOstring(medicionPH);
-  json["MedicionCE"] = floatTOstring(medicionCE);
+  json["HumedadAire"] = completarLargo(floatTOstring(medicionHumedad), 5, 1);
+  json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 7, 1);
+  json["TemperaturaAire"] = completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1);
+  json["TemperaturaAguaTanquePrincipal"] = completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1);
+  json["MedicionPH"] = completarLargo(floatTOstring(medicionPH), 6, 1);
+  json["MedicionCE"] = completarLargo(floatTOstring(medicionCE), 6, 1);
   json["NivelTanquePrincipal"] = intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal));
   json["NivelTanqueLimpia"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia));
   json["NivelTanqueDescarte"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada));
@@ -646,8 +648,12 @@ void loop()
   json["NivelPhMenos"] = intTOstring(nivelTOporcentaje(medicionNivelPHmenos, maximoNivelPHmenos, pisoTanquePHmenos));
   json["NivelNutrienteA"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA));
   json["NivelNutrienteB"] =  intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB));
-  json["Alertas"] = "0000000001";
-  json["Errores"] = "10000000000";
+  json["Alertas"] = auxArray;
+  json["Errores"] = auxArray2;
+  json["Fin"] = "/";
+
+  SERIAL_PRINT("aux alertas ", auxArray);
+  SERIAL_PRINT("aux errores ", auxArray2);
 
   Serial.println();
   json.prettyPrintTo(Serial);
@@ -798,6 +804,30 @@ bool apagarCalentador()
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
+//PHpinRELE12
+bool encenderPH()
+{
+  digitalWrite(PHpinRELE12, HIGH);
+  return true;
+}
+bool apagarPH()
+{
+  digitalWrite(PHpinRELE12, LOW);
+  return true;
+}
+//---------------------------------------------------------------------------------------------------------------//
+//CEpinRELE13
+bool encenderCE()
+{
+  digitalWrite(CEpinRELE13, HIGH);
+  return true;
+}
+bool apagarCE()
+{
+  digitalWrite(CEpinRELE13, LOW);
+  return true;
+}
+//---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES de encendido y apagado de dispositivos >
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES de medición
@@ -806,55 +836,55 @@ float medirNivel(char caso[])
 {
   int PinTrig;
   int PinEcho;
+  /*
+    if (strcmp(caso, "medicionNivelNutrienteA") == 0)
+    {*/
+  PinTrig = pinNivel1;
+  PinEcho = pinNivel2;
+  /*    goto continua;
+    }
 
-  if (strcmp(caso, "medicionNivelNutrienteA") == 0)
-  {
-    PinTrig = pinNivel1;
-    PinEcho = pinNivel2;
-    goto continua;
-  }
+    if (strcmp(caso, "medicionNivelNutrienteB") == 0)
+    {
+      PinTrig = pinNivel3;
+      PinEcho = pinNivel4;
+      goto continua;
+    }
 
-  if (strcmp(caso, "medicionNivelNutrienteB") == 0)
-  {
-    PinTrig = pinNivel3;
-    PinEcho = pinNivel4;
-    goto continua;
-  }
+    if (strcmp(caso, "medicionNivelPHmas") == 0)
+    {
+      PinTrig = pinNivel5;
+      PinEcho = pinNivel6;
+      goto continua;
+    }
 
-  if (strcmp(caso, "medicionNivelPHmas") == 0)
-  {
-    PinTrig = pinNivel5;
-    PinEcho = pinNivel6;
-    goto continua;
-  }
+    if (strcmp(caso, "medicionNivelPHmenos") == 0)
+    {
+      PinTrig = pinNivel7;
+      PinEcho = pinNivel8;
+      goto continua;
+    }
 
-  if (strcmp(caso, "medicionNivelPHmenos") == 0)
-  {
-    PinTrig = pinNivel7;
-    PinEcho = pinNivel8;
-    goto continua;
-  }
+    if (strcmp(caso, "medicionNivelTanqueAguaLimpia") == 0)
+    {
+      PinTrig = pinNivel9;
+      PinEcho = pinNivel10;
+      goto continua;
+    }
 
-  if (strcmp(caso, "medicionNivelTanqueAguaLimpia") == 0)
-  {
-    PinTrig = pinNivel9;
-    PinEcho = pinNivel10;
-    goto continua;
-  }
+    if (strcmp(caso, "medicionNivelTanqueDesechable") == 0)
+    {
+      PinTrig = pinNivel11;
+      PinEcho = pinNivel12;
+      goto continua;
+    }
 
-  if (strcmp(caso, "medicionNivelTanqueDesechable") == 0)
-  {
-    PinTrig = pinNivel11;
-    PinEcho = pinNivel12;
-    goto continua;
-  }
-
-  if (strcmp(caso, "medicionNivelTanquePrincial") == 0)
-  {
-    PinTrig = pinNivel13;
-    PinEcho = pinNivel14;
-  }
-
+    if (strcmp(caso, "medicionNivelTanquePrincial") == 0)
+    {
+      PinTrig = pinNivel13;
+      PinEcho = pinNivel14;
+    }
+  */
 continua:
 
   //  digitalWrite(PinTrig, LOW);
@@ -1470,17 +1500,33 @@ bool  checkPackageComplete(void)
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES para la generacion de alertas
 //---------------------------------------------------------------------------------------------------------------//
-String floatTOstring(float x)
+String floatTOstring(float x)//Convertir de float a String
 {
   return String(x);
 }
-
-String intTOstring(int x)
+//---------------------------------------------------------------------------------------------------------------//
+String intTOstring(int x)//Convertir de int a String
 {
   return String(x);
 }
+//---------------------------------------------------------------------------------------------------------------//
+String completarLargo(String x, int largo, int lado) // lado: 1 Derecha 2 Izquierda. ** Completar el largo con 000000
+{
+  //  SERIAL_PRINT("x: ", x);
+  //  SERIAL_PRINT("length: ", x.length());
 
-int nivelTOporcentaje(float x, float techo, float piso)
+  if (x.length() < largo) {
+    for (int i = 0 ; i <= largo - x.length(); i++)
+      if (lado == 1)
+        x = "0" + x;
+      else
+        x = x + "0";
+  }
+  //  SERIAL_PRINT("x2: ", x);
+  return x;
+}
+//---------------------------------------------------------------------------------------------------------------//
+int nivelTOporcentaje(float x, float techo, float piso)//Convertir la medicion de nivel en un %
 {
   float aux = mapf(x, piso, techo, -1, 99);
   aux = (aux > 99 ? 99 : aux );
@@ -1488,11 +1534,64 @@ int nivelTOporcentaje(float x, float techo, float piso)
 
   return (int) aux;
 }
-
 double mapf(double val, double in_min, double in_max, double out_min, double out_max) {
   return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+//---------------------------------------------------------------------------------------------------------------//
+String generarArrayAlertas() {//Se genera un array con todas las alertas existentes 0=false 1=true
 
+  String aux = "";
+
+  aux += ALT_MINIMO_PH_MAS ? "1" : "0";
+  aux += ALT_MINIMO_PH_MEN ? "1" : "0";
+  aux += ALT_MINIMO_NUT_A ? "1" : "0";
+  aux += ALT_MINIMO_NUT_B ? "1" : "0";
+  aux += ALT_MINIMO_PRINCIPAL ? "1" : "0";
+  aux += ALT_MAXIMO_PRINCIPAL ? "1" : "0";
+  aux += ALT_MINIMO_LIMPIA ? "1" : "0";
+  aux += ALT_MAXIMO_DESCARTE ? "1" : "0";
+  aux += ALT_RTC_DESCONFIGURADO ? "1" : "0";
+  aux += ALT_RTC_DESCONECTADO ? "1" : "0";
+
+  //  aux += ALT_MAXIMO_LIMPIA ? "1" : "0";
+  //  aux += ALT_MINIMO_DESCARTE ? "1" : "0";
+  // SERIAL_PRINT("aux alertas ", aux);
+  return aux;
+}
+//---------------------------------------------------------------------------------------------------------------//
+String generarArrayErrores() {//Se genera un array con todas los errores existentes 0=false 1=true
+
+  String aux = "";
+  //  SERIAL_PRINT("ERR_MEDICION_PH ", ERR_MEDICION_PH);
+  //  SERIAL_PRINT("ERR_MEDICION_CE ", ERR_MEDICION_CE);
+  //  SERIAL_PRINT("ERR_MEDICION_HUMEDAD ", ERR_MEDICION_HUMEDAD);
+  //  SERIAL_PRINT("ERR_MEDICION_TEMPERATURA ", ERR_MEDICION_TEMPERATURA);
+  //  SERIAL_PRINT("ERR_MEDICION_CO2 ", ERR_MEDICION_CO2);
+  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_PH_MAS ", ERR_MEDICION_NIVEL_PH_MAS);
+  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_PH_MEN ", ERR_MEDICION_NIVEL_PH_MEN);
+  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_NUT_A ", ERR_MEDICION_NIVEL_NUT_A);
+  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_NUT_B ", ERR_MEDICION_NIVEL_NUT_B);
+  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_PRINCIPAL ", ERR_MEDICION_NIVEL_PRINCIPAL);
+  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_LIMPIA ", ERR_MEDICION_NIVEL_LIMPIA);
+  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_DESCARTE ", ERR_MEDICION_NIVEL_DESCARTE);
+  //  SERIAL_PRINT("ERR_MEDICION_TEMPERATURA_AGUA ", ERR_MEDICION_TEMPERATURA_AGUA);
+  aux += ERR_MEDICION_PH ? "1" : "0";
+  aux += ERR_MEDICION_CE ? "1" : "0";
+  aux += ERR_MEDICION_HUMEDAD ? "1" : "0";
+  aux += ERR_MEDICION_TEMPERATURA ? "1" : "0";
+  aux += ERR_MEDICION_CO2 ? "1" : "0";
+  aux += ERR_MEDICION_NIVEL_PH_MAS ? "1" : "0";
+  aux += ERR_MEDICION_NIVEL_PH_MEN ? "1" : "0";
+  aux += ERR_MEDICION_NIVEL_NUT_A ? "1" : "0";
+  aux += ERR_MEDICION_NIVEL_NUT_B ? "1" : "0";
+  aux += ERR_MEDICION_NIVEL_PRINCIPAL ? "1" : "0";
+  aux += ERR_MEDICION_NIVEL_LIMPIA ? "1" : "0";
+  aux += ERR_MEDICION_NIVEL_DESCARTE ? "1" : "0";
+  aux += ERR_MEDICION_TEMPERATURA_AGUA ? "1" : "0";
+  //  SERIAL_PRINT("aux errores", aux);
+  return aux;
+}
+//---------------------------------------------------------------------------------------------------------------//
 bool generarAlerta(String mensaje)
 {
   Serial.println(mensaje);
