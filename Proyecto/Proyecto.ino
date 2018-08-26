@@ -4,8 +4,12 @@
 #include "MQ135.h" //Cargamos la librería MQ135
 #include <ArduinoJson.h>
 
+#include <DS1307RTC.h>
 #include <Time.h>
+#include <Wire.h>
 #include <TimeAlarms.h>
+
+#define idDispositivo "2263874F-4820-4E31-9E37-58E77DD25494"
 
 #define DEBUG
 //********************************** PROTOCOLO DE COMUNICACION *****************************
@@ -72,11 +76,15 @@ bool ALT_MINIMO_LIMPIA = false;
 bool ALT_MAXIMO_LIMPIA = false;
 bool ALT_MINIMO_DESCARTE = false;
 bool ALT_MAXIMO_DESCARTE = false;
+bool ALT_RTC_DESCONFIGURADO = false;
+bool ALT_RTC_DESCONECTADO = false;
 
 # define CANTIDAD_MEDICIONES 10
 # define TIEMPO_GOTEO 5 //segundos x cada ml
 # define TIEMPO_BOMBA_AGUA 10 //segundos x cada litro
 # define CM_POR_LITRO 2 //cm x cada litro
+
+bool CONFIGURAR_ALARMAS = true;
 
 //************************** pH del agua *****************************************
 #define pinPH A1 //Seleccionamos el pin que usara el sensor de pH.
@@ -142,8 +150,8 @@ DallasTemperature sensorDS18B20(&oneWireObjeto);//Inicializamos la clase.
 
 //*********************************************************************************** < VARIABLES PARA MEDICIONES
 //Variables para Luz
-float hsLuzParametro = 0.0;
-String horaInicioLuz = "21:00";
+int hsLuzParametro = 0;
+int horaInicioLuz = 0;
 
 //Variables Medición de PH
 float medicionPH = 0.0; //Valor medido
@@ -152,6 +160,8 @@ float PHmaxParametro = 0.0;
 float PHminParametro = 0.0;
 float medicionNivelPHmas = 0.0; //Valor medido
 float medicionNivelPHmenos = 0.0; //Valor medido
+float maximoNivelPHmas = 0.0;
+float maximoNivelPHmenos = 0.0;
 float minimoNivelPHmas = 0.0;
 float minimoNivelPHmenos = 0.0;
 
@@ -181,6 +191,8 @@ float medicionNivelNutrienteB = 0.0; //Valor medido
 float medicionCE = 0.0; //Valor medido
 float ceMaxParametro = 0.0;
 float ceMinParametro = 0.0;
+float maximoNivelNutrienteA = 0.0;
+float maximoNivelNutrienteB = 0.0;
 float minimoNivelNutrienteA = 0.0;
 float minimoNivelNutrienteB = 0.0;
 
@@ -192,10 +204,16 @@ float minimoNivelTanquePrincial = 0.0;
 float maximoNivelTanquePrincial = 0.0;
 float minimoNivelTanqueAguaLimpia = 0.0;
 float maximoNivelTanqueAguaLimpia = 0.0;
-float pisoTanqueAguaLimpia = 0.0;
 float minimoNivelTanqueDesechable = 0.0;
 float maximoNivelTanqueDesechable = 0.0;
 
+float pisoTanqueAguaPrincipal = 0.0;
+float pisoTanqueAguaLimpia = 0.0;
+float pisoTanqueAguaDescartada = 0.0;
+float pisoTanquePHmas = 0.0;
+float pisoTanquePHmenos = 0.0;
+float pisoTanqueNutrienteA = 0.0;
+float pisoTanqueNutrienteB = 0.0;
 //***********************************************************************************  VARIABLES PARA MEDICIONES >
 
 void setup() {
@@ -248,10 +266,10 @@ void setup() {
   receivedPackage.reserve(200);
 
   /*
-  Tomamos el parametro de horaInicioLuz y de hsLuzParametro
-  seteamos el reloj con la hora del reloj RTC
-  luego seteamos la alarma inicial y la alarma final para encender y apagar las luces.
-  cambiamos el delay(2000); del loop por Alarm.delay(1000);
+    Tomamos el parametro de horaInicioLuz y de hsLuzParametro
+    seteamos el reloj con la hora del reloj RTC
+    luego seteamos la alarma inicial y la alarma final para encender y apagar las luces.
+    cambiamos el delay(2000); del loop por Alarm.delay(1000);
   */
 }
 
@@ -263,7 +281,13 @@ void loop()
   //  {
   //    setParametrosDefault();
   //  }
-  hsLuzParametro = 2.0; //horas
+  //  else
+  //  {
+  //    CONFIGURAR_ALARMAS = TRUE;
+  //  }
+
+  hsLuzParametro = 2; //horas
+  horaInicioLuz = 21; //hora
 
   humedadMaxParametro = 60.0; //%
   humedadMinParametro = 40.0; //%
@@ -282,15 +306,57 @@ void loop()
 
   minimoNivelPHmas = 10;
   minimoNivelPHmenos = 10;
+  maximoNivelPHmas = 5;
+  maximoNivelPHmenos = 5;
+
+  maximoNivelNutrienteA = 5;
+  maximoNivelNutrienteB = 5;
   minimoNivelNutrienteA = 10;
   minimoNivelNutrienteB = 10;
+
   minimoNivelTanquePrincial = 10;
   maximoNivelTanquePrincial = 5;
   minimoNivelTanqueAguaLimpia = 10;
-  pisoTanqueAguaLimpia = 15;
   maximoNivelTanqueAguaLimpia = 5;
   minimoNivelTanqueDesechable = 10;
   maximoNivelTanqueDesechable = 5;
+
+  pisoTanqueAguaPrincipal = 15.0;
+  pisoTanqueAguaLimpia = 15.0;
+  pisoTanqueAguaDescartada = 15.0;
+  pisoTanquePHmas = 15.0;
+  pisoTanquePHmenos = 15.0;
+  pisoTanqueNutrienteA = 15.0;
+  pisoTanqueNutrienteB = 15.0;
+
+  if (CONFIGURAR_ALARMAS)
+  {
+    tmElements_t datetime;
+    if (RTC.read(datetime) == true) {
+      //tomo la hora del RTC
+      setTime(datetime.Hour, datetime.Minute, datetime.Second, datetime.Month, datetime.Day, datetime.Year);
+
+      // create the alarms
+      Alarm.alarmRepeat(horaInicioLuz, 0, 0, encenderLuces); // 8:30am every day
+      Alarm.alarmRepeat(ajustarHoras(horaInicioLuz + hsLuzParametro), 0, 0, apagarLuces); // 5:45pm every day
+
+      CONFIGURAR_ALARMAS = false;
+    }
+    else {
+      if (RTC.chipPresent()) {
+        // El reloj esta detenido, es necesario ponerlo a tiempo
+        ALT_RTC_DESCONFIGURADO = true;
+        generarAlerta("ALT_RTC_DESCONFIGURADO");
+      }
+      else {
+        // No se puede comunicar con el RTC en el bus I2C, revisar las conexiones.
+        ALT_RTC_DESCONECTADO = true;
+        generarAlerta("ALT_RTC_DESCONECTADO");
+      }
+    }
+    // CONFIGURAR_ALARMAS = false;
+  }
+  digitalClockDisplay();
 
   if (!controlarNivelesPH())
   {
@@ -514,9 +580,6 @@ void loop()
     apagarVentiladores();
   }
 
-
-
-
   //Se imprimen las variables
   Serial.print("Humedad: ");
   Serial.print(medicionHumedad);
@@ -554,7 +617,6 @@ void loop()
   Serial.print(medicionCO2);
   Serial.println(" ppm");
 
-
   //    Serial.println("sensor=");
   //    Serial.print(sensorValue);
   Serial.print("CE: ");
@@ -563,18 +625,27 @@ void loop()
   Serial.println("");
 
 
-   //crear Json
+  //crear Json
   StaticJsonBuffer<280> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
-  json["CantidadHorasLuz"] = hsLuzParametro;
-  json["HoraInicioLuz"] = horaInicioLuz;
-  json["PH_aceptable"] = PhParametro;
-  json["HumedadAire"] = medicionHumedad;
-  json["NivelCO2"] = medicionCO2;
-  json["TemperaturaAire"] = medicionTemperaturaAire;
-  json["TemperaturaAguaTanquePrincipal"] = medicionTemperaturaAgua;
-  json["MedicionPH"] = medicionPH;
-  json["MedicionCE"] = medicionCE;
+  json["idDispositivo"] = idDispositivo;
+  json["Notificaciones"] = "000";
+  json["CantidadHorasLuz"] = "00";
+  json["HoraInicioLuz"] = "00";
+  json["PH_aceptable"] = "00";
+  json["HumedadAire"] = floatTOstring(medicionHumedad);
+  json["NivelCO2"] = floatTOstring(medicionCO2);
+  json["TemperaturaAire"] = floatTOstring(medicionTemperaturaAire);
+  json["TemperaturaAguaTanquePrincipal"] = floatTOstring(medicionTemperaturaAgua);
+  json["MedicionPH"] = floatTOstring(medicionPH);
+  json["MedicionCE"] = floatTOstring(medicionCE);
+  json["NivelTanquePrincipal"] = intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal));
+  json["NivelTanqueLimpia"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia));
+  json["NivelTanqueDescarte"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada));
+  json["NivelPhMas"] = intTOstring(nivelTOporcentaje(medicionNivelPHmas, maximoNivelPHmas, pisoTanquePHmas));
+  json["NivelPhMenos"] = intTOstring(nivelTOporcentaje(medicionNivelPHmenos, maximoNivelPHmenos, pisoTanquePHmenos));
+  json["NivelNutrienteA"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA));
+  json["NivelNutrienteB"] =  intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB));
   json["Alertas"] = "0000000001";
   json["Errores"] = "10000000000";
 
@@ -582,11 +653,11 @@ void loop()
   json.prettyPrintTo(Serial);
   String dato;
   json.printTo(dato);
-  
+
   Serial.println("");
   Serial.println("");
-  
-  delay(2000); //Se espera 2 segundos para seguir leyendo //datos
+
+  Alarm.delay(1000); //delay(2000); //Se espera 2 segundos para seguir leyendo //datos
 }
 
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
@@ -692,15 +763,15 @@ bool apagarPHmenos()
 }
 //---------------------------------------------------------------------------------------------------------------//
 //LucesPinRELE9
-bool encenderLuces()
+void encenderLuces()
 {
   digitalWrite(LucesPinRELE9, HIGH);
-  return true;
+  //return true;
 }
-bool apagarLuces()
+void apagarLuces()
 {
   digitalWrite(LucesPinRELE9, LOW);
-  return true;
+  //return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //VentiladoresPinRELE10
@@ -1036,7 +1107,7 @@ bool controlarNivelesPH()
   else if (medicionNivelPHmas > minimoNivelPHmas) {
     ALT_MINIMO_PH_MAS = true;
   }
-  
+
   //------------------------------------------------------- PH-
   ERR_MEDICION_NIVEL_PH_MEN = false;
   ALT_MINIMO_PH_MEN = false;
@@ -1399,10 +1470,68 @@ bool  checkPackageComplete(void)
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES para la generacion de alertas
 //---------------------------------------------------------------------------------------------------------------//
+String floatTOstring(float x)
+{
+  return String(x);
+}
+
+String intTOstring(int x)
+{
+  return String(x);
+}
+
+int nivelTOporcentaje(float x, float techo, float piso)
+{
+  float aux = mapf(x, piso, techo, -1, 99);
+  aux = (aux > 99 ? 99 : aux );
+  aux = (aux < -1 ? -1 : aux );
+
+  return (int) aux;
+}
+
+double mapf(double val, double in_min, double in_max, double out_min, double out_max) {
+  return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 bool generarAlerta(String mensaje)
 {
   Serial.println(mensaje);
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para la generacion de alertas >
+//---------------------------------------------------------------------------------------------------------------//
+//************************************************************** < FUNCIONES para el reloj RTC
+//---------------------------------------------------------------------------------------------------------------//
+
+void digitalClockDisplay()
+{
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.println();
+}
+
+void printDigits(int digits)
+{
+  Serial.print(":");
+  if (digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
+
+int ajustarHoras(int x)
+{
+  if (x >= 24) {//si la cuenta supero las 24hs
+    if (x == 24)//si son 24 lo paso a 00hs
+      return 0;
+    else {//si son mas de 24hs, lo ajusto a la hora real
+      return x - 24;
+    }
+  }
+  return x;//como es menor a 24 queda igual
+}
+
+//---------------------------------------------------------------------------------------------------------------//
+//************************************************************** FUNCIONES para el reloj RTC >
 //---------------------------------------------------------------------------------------------------------------//
