@@ -628,7 +628,7 @@ void loop()
   String auxArray2 = generarArrayErrores();
 
   //crear Json
-  StaticJsonBuffer<280> jsonBuffer;
+  StaticJsonBuffer<320> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
   json["idDispositivo"] = idDispositivo;
   json["Notificaciones"] = "000";
@@ -636,7 +636,7 @@ void loop()
   json["HoraInicioLuz"] = "00";
   json["PH_aceptable"] = "00";
   json["HumedadAire"] = completarLargo(floatTOstring(medicionHumedad), 5, 1);
-  json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 7, 1);
+  json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 8, 1);
   json["TemperaturaAire"] = completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1);
   json["TemperaturaAguaTanquePrincipal"] = completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1);
   json["MedicionPH"] = completarLargo(floatTOstring(medicionPH), 6, 1);
@@ -650,10 +650,6 @@ void loop()
   json["NivelNutrienteB"] =  intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB));
   json["Alertas"] = auxArray;
   json["Errores"] = auxArray2;
-  json["Fin"] = "/";
-
-  SERIAL_PRINT("aux alertas ", auxArray);
-  SERIAL_PRINT("aux errores ", auxArray2);
 
   Serial.println();
   json.prettyPrintTo(Serial);
@@ -807,24 +803,24 @@ bool apagarCalentador()
 //PHpinRELE12
 bool encenderPH()
 {
-  digitalWrite(PHpinRELE12, HIGH);
+  digitalWrite(PHpinRELE12, LOW);
   return true;
 }
 bool apagarPH()
 {
-  digitalWrite(PHpinRELE12, LOW);
+  digitalWrite(PHpinRELE12, HIGH);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //CEpinRELE13
 bool encenderCE()
 {
-  digitalWrite(CEpinRELE13, HIGH);
+  digitalWrite(CEpinRELE13, LOW);
   return true;
 }
 bool apagarCE()
 {
-  digitalWrite(CEpinRELE13, LOW);
+  digitalWrite(CEpinRELE13, HIGH);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -956,23 +952,31 @@ float medirTemperaturaAgua()
 //---------------------------------------------------------------------------------------------------------------//
 float medirPH()
 {
+  apagarCE();
+  encenderPH();
+  delay(500);
   int measure = analogRead(pinPH);//Se lee el pH.
   //si es 0 esta conectado pero apagado.
   //SERIAL_PRINT("pinPH:",measure);
   if (measure == 0)
     return 0.0;
   double voltage = 5 / 1024.0 * measure;
+  apagarPH();
   return 7 + ((2.5 - voltage) / 0.18);
 }
 //---------------------------------------------------------------------------------------------------------------//
 float medirCE()
 {
+  apagarPH();
+  encenderCE();
+  delay(500);
   int sensorValue = 0;
   int outputValue = 0;
   sensorValue = analogRead(pinCE);
   //SERIAL_PRINT("pinCE:",sensorValue);
   outputValue = map(sensorValue, 0, 1023, 0, 5000);
   //SERIAL_PRINT("outputValue:",outputValue);
+  apagarCE();
   return sensorValue * 5.00 / 1024;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -1610,7 +1614,7 @@ void digitalClockDisplay()
   printDigits(second());
   Serial.println();
 }
-
+//---------------------------------------------------------------------------------------------------------------//
 void printDigits(int digits)
 {
   Serial.print(":");
@@ -1618,7 +1622,7 @@ void printDigits(int digits)
     Serial.print('0');
   Serial.print(digits);
 }
-
+//---------------------------------------------------------------------------------------------------------------//
 int ajustarHoras(int x)
 {
   if (x >= 24) {//si la cuenta supero las 24hs
