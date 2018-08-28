@@ -34,7 +34,7 @@
 #define OPEN                     65
 
 #define PACKAGE_FORMAT   "%c%c%s%c%s%c%c" //start character + delimiter character + payLoad + delimiter character + checksum + delimiter character + end character.
-#define SIZE_PAYLOAD     40
+#define SIZE_PAYLOAD     613//40
 #define SIZE_PACKAGE     SIZE_PAYLOAD + 7
 #define SIZE_CHECKSUM    3
 #define SIZE_MSG_QUEUE   10
@@ -83,6 +83,9 @@ bool ALT_RTC_DESCONECTADO = false;
 # define TIEMPO_GOTEO 5 //segundos x cada ml
 # define TIEMPO_BOMBA_AGUA 10 //segundos x cada litro
 # define CM_POR_LITRO 2 //cm x cada litro
+
+#define TIEMPO_VENTILACION 60
+bool VENTILADOR_FUNCIONANDO = false;
 
 bool CONFIGURAR_ALARMAS = true;
 
@@ -275,6 +278,7 @@ void setup() {
 
 void loop()
 {
+  //checkPackageComplete();
 
   //Tomar parametros del cultivo.
   //  if (!obtenerParametros())
@@ -337,8 +341,8 @@ void loop()
       setTime(datetime.Hour, datetime.Minute, datetime.Second, datetime.Month, datetime.Day, datetime.Year);
 
       // create the alarms
-      Alarm.alarmRepeat(horaInicioLuz, 0, 0, encenderLuces); // 8:30am every day
-      Alarm.alarmRepeat(ajustarHoras(horaInicioLuz + hsLuzParametro), 0, 0, apagarLuces); // 5:45pm every day
+      Alarm.alarmRepeat(horaInicioLuz, 0, 0, encenderLuces);
+      Alarm.alarmRepeat(ajustarHoras(horaInicioLuz + hsLuzParametro), 0, 0, apagarLuces);
 
       CONFIGURAR_ALARMAS = false;
     }
@@ -463,7 +467,6 @@ void loop()
       apagarEnfriador();
       encenderCalentador();
     }
-
     if (!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA)
     {
       generarAlerta("!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA");
@@ -574,10 +577,19 @@ void loop()
   }
   else
   {
-    generarAlerta("CMD_VENTILAR");
-    encenderVentiladores();
-    delay(15000);
-    apagarVentiladores();
+    //    if (!CMD_VENTILAR && VENTILADOR_FUNCIONANDO) {
+    //      apagarVentiladores();
+    //    }
+    if (CMD_VENTILAR) {
+      if (!VENTILADOR_FUNCIONANDO) {
+        VENTILADOR_FUNCIONANDO = true;
+        generarAlerta("CMD_VENTILAR");
+        encenderVentiladores();
+        Alarm.timerOnce(TIEMPO_VENTILACION, apagarVentiladores);
+        //delay(15000);
+        //apagarVentiladores();
+      }
+    }
   }
 
   //Se imprimen las variables
@@ -624,37 +636,7 @@ void loop()
 
   Serial.println("");
 
-  String auxArray = generarArrayAlertas();
-  String auxArray2 = generarArrayErrores();
-
-  //crear Json
-  StaticJsonBuffer<320> jsonBuffer;
-  JsonObject& json = jsonBuffer.createObject();
-  json["idDispositivo"] = idDispositivo;
-  json["Notificaciones"] = "000";
-  json["CantidadHorasLuz"] = "00";
-  json["HoraInicioLuz"] = "00";
-  json["PH_aceptable"] = "00";
-  json["HumedadAire"] = completarLargo(floatTOstring(medicionHumedad), 5, 1);
-  json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 8, 1);
-  json["TemperaturaAire"] = completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1);
-  json["TemperaturaAguaTanquePrincipal"] = completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1);
-  json["MedicionPH"] = completarLargo(floatTOstring(medicionPH), 6, 1);
-  json["MedicionCE"] = completarLargo(floatTOstring(medicionCE), 6, 1);
-  json["NivelTanquePrincipal"] = intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal));
-  json["NivelTanqueLimpia"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia));
-  json["NivelTanqueDescarte"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada));
-  json["NivelPhMas"] = intTOstring(nivelTOporcentaje(medicionNivelPHmas, maximoNivelPHmas, pisoTanquePHmas));
-  json["NivelPhMenos"] = intTOstring(nivelTOporcentaje(medicionNivelPHmenos, maximoNivelPHmenos, pisoTanquePHmenos));
-  json["NivelNutrienteA"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA));
-  json["NivelNutrienteB"] =  intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB));
-  json["Alertas"] = auxArray;
-  json["Errores"] = auxArray2;
-
-  Serial.println();
-  json.prettyPrintTo(Serial);
-  String dato;
-  json.printTo(dato);
+  generarJson();
 
   Serial.println("");
   Serial.println("");
@@ -768,11 +750,13 @@ bool apagarPHmenos()
 void encenderLuces()
 {
   digitalWrite(LucesPinRELE9, HIGH);
+  //Serial.print("encenderLuces");
   //return true;
 }
 void apagarLuces()
 {
   digitalWrite(LucesPinRELE9, LOW);
+  //Serial.print("apagarLuces");
   //return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -780,12 +764,15 @@ void apagarLuces()
 bool encenderVentiladores()
 {
   digitalWrite(VentiladoresPinRELE10, HIGH);
+  Serial.println("encenderVentiladores");
   return true;
 }
-bool apagarVentiladores()
+void apagarVentiladores()
 {
   digitalWrite(VentiladoresPinRELE10, LOW);
-  return true;
+  VENTILADOR_FUNCIONANDO = false;
+  Serial.println("apagarVentiladores");
+  //return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //CalentadorPinRELE11
@@ -1559,26 +1546,13 @@ String generarArrayAlertas() {//Se genera un array con todas las alertas existen
 
   //  aux += ALT_MAXIMO_LIMPIA ? "1" : "0";
   //  aux += ALT_MINIMO_DESCARTE ? "1" : "0";
-  // SERIAL_PRINT("aux alertas ", aux);
+
   return aux;
 }
 //---------------------------------------------------------------------------------------------------------------//
 String generarArrayErrores() {//Se genera un array con todas los errores existentes 0=false 1=true
 
   String aux = "";
-  //  SERIAL_PRINT("ERR_MEDICION_PH ", ERR_MEDICION_PH);
-  //  SERIAL_PRINT("ERR_MEDICION_CE ", ERR_MEDICION_CE);
-  //  SERIAL_PRINT("ERR_MEDICION_HUMEDAD ", ERR_MEDICION_HUMEDAD);
-  //  SERIAL_PRINT("ERR_MEDICION_TEMPERATURA ", ERR_MEDICION_TEMPERATURA);
-  //  SERIAL_PRINT("ERR_MEDICION_CO2 ", ERR_MEDICION_CO2);
-  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_PH_MAS ", ERR_MEDICION_NIVEL_PH_MAS);
-  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_PH_MEN ", ERR_MEDICION_NIVEL_PH_MEN);
-  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_NUT_A ", ERR_MEDICION_NIVEL_NUT_A);
-  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_NUT_B ", ERR_MEDICION_NIVEL_NUT_B);
-  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_PRINCIPAL ", ERR_MEDICION_NIVEL_PRINCIPAL);
-  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_LIMPIA ", ERR_MEDICION_NIVEL_LIMPIA);
-  //  SERIAL_PRINT("ERR_MEDICION_NIVEL_DESCARTE ", ERR_MEDICION_NIVEL_DESCARTE);
-  //  SERIAL_PRINT("ERR_MEDICION_TEMPERATURA_AGUA ", ERR_MEDICION_TEMPERATURA_AGUA);
   aux += ERR_MEDICION_PH ? "1" : "0";
   aux += ERR_MEDICION_CE ? "1" : "0";
   aux += ERR_MEDICION_HUMEDAD ? "1" : "0";
@@ -1592,10 +1566,45 @@ String generarArrayErrores() {//Se genera un array con todas los errores existen
   aux += ERR_MEDICION_NIVEL_LIMPIA ? "1" : "0";
   aux += ERR_MEDICION_NIVEL_DESCARTE ? "1" : "0";
   aux += ERR_MEDICION_TEMPERATURA_AGUA ? "1" : "0";
-  //  SERIAL_PRINT("aux errores", aux);
+
   return aux;
 }
 //---------------------------------------------------------------------------------------------------------------//
+bool generarJson()
+{
+  String auxArray = generarArrayAlertas();
+  String auxArray2 = generarArrayErrores();
+
+  //crear Json
+  StaticJsonBuffer<290> jsonBuffer;
+  JsonObject& json = jsonBuffer.createObject();
+  json["idDispositivo"] = idDispositivo;
+  json["Notificaciones"] = "000";
+  json["CantidadHorasLuz"] = "00";
+  json["HoraInicioLuz"] = "00";
+  json["PH_aceptable"] = "00";
+  json["HumedadAire"] = completarLargo(floatTOstring(medicionHumedad), 5, 1);
+  json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 8, 1);
+  json["TemperaturaAire"] = completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1);
+  json["TemperaturaAguaTanquePrincipal"] = completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1);
+  json["MedicionPH"] = completarLargo(floatTOstring(medicionPH), 6, 1);
+  json["MedicionCE"] = completarLargo(floatTOstring(medicionCE), 6, 1);
+  json["NivelTanquePrincipal"] = intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal));
+  json["NivelTanqueLimpia"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia));
+  json["NivelTanqueDescarte"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada));
+  json["NivelPhMas"] = intTOstring(nivelTOporcentaje(medicionNivelPHmas, maximoNivelPHmas, pisoTanquePHmas));
+  json["NivelPhMenos"] = intTOstring(nivelTOporcentaje(medicionNivelPHmenos, maximoNivelPHmenos, pisoTanquePHmenos));
+  json["NivelNutrienteA"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA));
+  json["NivelNutrienteB"] =  intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB));
+  json["Alertas"] = auxArray;
+  json["Errores"] = auxArray2;
+
+  Serial.println();
+  json.prettyPrintTo(Serial);
+  String dato;
+  json.printTo(dato);
+}
+
 bool generarAlerta(String mensaje)
 {
   Serial.println(mensaje);
