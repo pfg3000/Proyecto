@@ -34,7 +34,7 @@
 #define OPEN                     65
 
 #define PACKAGE_FORMAT   "%c%c%s%c%s%c%c" //start character + delimiter character + payLoad + delimiter character + checksum + delimiter character + end character.
-#define SIZE_PAYLOAD     613//40
+#define SIZE_PAYLOAD     513//40
 #define SIZE_PACKAGE     SIZE_PAYLOAD + 7
 #define SIZE_CHECKSUM    3
 #define SIZE_MSG_QUEUE   10
@@ -221,6 +221,7 @@ float pisoTanqueNutrienteB = 0.0;
 
 void setup() {
   Serial.begin(9600); //Se inicia la comunicación serial
+  Serial1.begin(9600);
 
   dht.begin(); //Se inicia el sensor DHT22.
   sensorDS18B20.begin(); //Se inicia el sensor DS18B20.
@@ -1246,9 +1247,9 @@ bool controlarNivelesTanques()
 void serialEvent() //Funcion que captura los eventos del puerto serial.
 {
   static int state = 0;
-  if (Serial.available()) {
-    char inChar = (char)Serial.read();
-
+  if (Serial1.available()) {
+    char inChar = (char)Serial1.read();
+    
     if (inChar == START_CHARACTER && state == 0)
     {
       state = 1;
@@ -1603,6 +1604,22 @@ bool generarJson()
   json.prettyPrintTo(Serial);
   String dato;
   json.printTo(dato);
+
+
+  //SERIAL_PRINT(F("\n> ding dong."), "");
+
+  //char cmd[] = "01";
+  //char data[5];
+  //char payLoad[20];
+  char pakage1[513];
+  char pakage[520];
+  dato.toCharArray(pakage1, 513);
+  //01x034
+  //snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "Ding-Dong");
+  //SERIAL_PRINT(F("payLoad: "), payLoad);
+  strcpy(pakage, preparePackage(pakage1, strlen(pakage1)));
+  SERIAL_PRINT("pakage: ", pakage);
+  Serial1.println(pakage);
 }
 
 bool generarAlerta(String mensaje)

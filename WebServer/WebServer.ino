@@ -4,6 +4,8 @@
 #include <WiFiClient.h>
 //#include <WiFiClientSecure.h>
 
+#include <SoftwareSerial.h>
+
 #include <Time.h>
 #include <Wire.h>
 #include <TimeAlarms.h>
@@ -15,6 +17,7 @@
 #define START_CHARACTER '#'
 #define END_CHARACTER '*'
 #define SERIAL_PRINT(x,y)        Serial.print(x);Serial.println(y);
+#define SERIAL_PRINT_(x,y)       SoftSerial.print(x);SoftSerial.print(y);
 #endif
 
 #ifndef DEBUG
@@ -22,6 +25,7 @@
 #define START_CHARACTER (int8_t)0x91
 #define END_CHARACTER (int8_t)0x92
 #define SERIAL_PRINT(x,y)        Serial.print(x);Serial.println(y);
+#define SERIAL_PRINT_(x,y)       SoftSerial.print(x);SoftSerial.print(y);
 #endif
 
 #define ERROR_CODE              (-1)
@@ -31,7 +35,7 @@
 #define OPEN                     65
 
 #define PACKAGE_FORMAT   "%c%c%s%c%s%c%c" //start character + delimiter character + payLoad + delimiter character + checksum + delimiter character + end character.
-#define SIZE_PAYLOAD     40
+#define SIZE_PAYLOAD     513//40
 #define SIZE_PACKAGE     SIZE_PAYLOAD + 7
 #define SIZE_CHECKSUM    3
 #define SIZE_MSG_QUEUE   10
@@ -39,12 +43,14 @@
 String receivedPackage = "";
 bool   packageComplete = false;
 
+SoftwareSerial SoftSerial(0, 2);
+
 //-------------------VARIABLES GLOBALES--------------------------
 
 bool CONFIGURAR_ALARMAS = true;
 
-const char *ssid = "Zoylofull";
-const char *password = "1234432112";
+const char *ssid = "PolkoNet";
+const char *password = "polkotite8308!";
 
 unsigned long previousMillis = 0;
 
@@ -93,13 +99,15 @@ String enviardatos(String datos)
     linea = client.readStringUntil('\r');
   }
   Serial.println(linea);
-  /*
-        const size_t bufferSize = JSON_OBJECT_SIZE(1) + 20;
+  
+        const size_t bufferSize = JSON_OBJECT_SIZE(1) + 145;
         DynamicJsonBuffer jsonBuffer(bufferSize);
-        const char* json = "{\"Distancia\":3.44}";
+        char json[146];//"{\"Distancia\":3.44}";
+        linea.toCharArray(json, 146);
         JsonObject& root = jsonBuffer.parseObject(json);
-        float Distancia = root["Distancia"]; // 3.44
-  */
+        root.prettyPrintTo(Serial);
+        //float Distancia = root["Distancia"]; // 3.44
+  
   return linea;
 }
 
@@ -111,8 +119,11 @@ void setup() {
 
   int contconexion = 0;
   // Inicia Serial
-  Serial.begin(115200);
+  Serial.begin(9600);
+  SoftSerial.begin(2400);
+  
   Serial.println("");
+
 
   Serial.print("chipId: ");
   chipid = String(ESP.getChipId());
@@ -151,6 +162,7 @@ void loop() {
   {
     setTime(0, 0, 0, 1, 1, 2000);
     Alarm.timerRepeat(15, enviarMensaje);
+    //Alarm.disable();
     CONFIGURAR_ALARMAS = false;
   }
   digitalClockDisplay();
@@ -247,6 +259,7 @@ void serialEvent() //Funcion que captura los eventos del puerto serial.
       receivedPackage += inChar;
       state = 0;
       packageComplete = true;
+      Serial.print(receivedPackage);
     }
   }
 }
