@@ -4,11 +4,11 @@
 #include <WiFiClient.h>
 //#include <WiFiClientSecure.h>
 
-#include <SoftwareSerial.h>
-
 #include <Time.h>
 #include <Wire.h>
 #include <TimeAlarms.h>
+
+#include "FS.h"
 
 #define DEBUG
 //********************************** PROTOCOLO DE COMUNICACION *****************************
@@ -17,7 +17,6 @@
 #define START_CHARACTER '#'
 #define END_CHARACTER '*'
 #define SERIAL_PRINT(x,y)        Serial.print(x);Serial.println(y);
-#define SERIAL_PRINT_(x,y)       SoftSerial.print(x);SoftSerial.print(y);
 #endif
 
 #ifndef DEBUG
@@ -25,7 +24,6 @@
 #define START_CHARACTER (int8_t)0x91
 #define END_CHARACTER (int8_t)0x92
 #define SERIAL_PRINT(x,y)        Serial.print(x);Serial.println(y);
-#define SERIAL_PRINT_(x,y)       SoftSerial.print(x);SoftSerial.print(y);
 #endif
 
 #define ERROR_CODE              (-1)
@@ -43,8 +41,6 @@
 String receivedPackage = "";
 bool   packageComplete = false;
 
-SoftwareSerial SoftSerial(0, 2);
-
 //-------------------VARIABLES GLOBALES--------------------------
 
 bool CONFIGURAR_ALARMAS = true;
@@ -59,59 +55,8 @@ String strhost = "clientes.webbuilders.com.ar";
 String strurl = "/testSmartZ.php"; // donde tengo la web
 String chipid = ""; //identificador unico de la placa de m
 
-//-------Función para Enviar Datos a la Base de Datos SQL--------
-
-String enviardatos(String datos)
-{
-  String linea = "error";
-  //WiFiClientSecure client; //esto es para https
-  WiFiClient client;
-  strhost.toCharArray(host, 100);
-  // Serial.println(host);
-  if (!client.connect(host, 80)) {
-    Serial.println("Fallo de conexion");
-    return linea;
-  }
-
-  client.print(String("PUT ") + strurl + " HTTP/1.1" + "\r\n" +
-               "Host: " + strhost + "\r\n" +
-               "Accept: */*" + "*\r\n" +
-               "Content-Length: " + datos.length() + "\r\n" +
-               "Content-Type: application/x-www-form-urlencoded" + "\r\n" +
-               "\r\n" + datos);
-  delay(10);
-
-  //Serial.print("Enviando datos a SQL...");
-
-  unsigned long timeout = millis();
-  while (client.available() == 0)
-  {
-    if (millis() - timeout > 5000)
-    {
-      Serial.println("Cliente fuera de tiempo!");
-      client.stop();
-      return linea;
-    }
-  }
-  // Lee todas las lineas que recibe del servidor y las imprime por la terminal serial
-  while (client.available())
-  {
-    linea = client.readStringUntil('\r');
-  }
-  Serial.println(linea);
-  
-        const size_t bufferSize = JSON_OBJECT_SIZE(1) + 145;
-        DynamicJsonBuffer jsonBuffer(bufferSize);
-        char json[146];//"{\"Distancia\":3.44}";
-        linea.toCharArray(json, 146);
-        JsonObject& root = jsonBuffer.parseObject(json);
-        root.prettyPrintTo(Serial);
-        //float Distancia = root["Distancia"]; // 3.44
-  
-  return linea;
-}
-
-//-------------------------------------------------------------------------
+String configPackage = "";
+String downloadConfig = "";
 
 void setup() {
   //********* Protocolo de comunicación.
@@ -119,9 +64,10 @@ void setup() {
 
   int contconexion = 0;
   // Inicia Serial
-  Serial.begin(9600);
-  SoftSerial.begin(2400);
-  
+  Serial.begin(2400);
+  //  Serial.swap();
+  //  pinMode(13, INPUT);
+  //  pinMode(15, OUTPUT);
   Serial.println("");
 
 
@@ -154,10 +100,17 @@ void setup() {
     Serial.println("");
     Serial.println("Error de conexion");
   }
+
+  if (!SPIFFS.begin())
+  {
+    Serial.println("Failed to mount file system");
+    return;
+  }
 }
 
 //--------------------------LOOP--------------------------------
 void loop() {
+  Serial.println("");
   if (CONFIGURAR_ALARMAS)
   {
     setTime(0, 0, 0, 1, 1, 2000);
@@ -165,9 +118,67 @@ void loop() {
     //Alarm.disable();
     CONFIGURAR_ALARMAS = false;
   }
-  digitalClockDisplay();
+  //digitalClockDisplay();
+
+  //  if (SoftSerial.available()) {
+  //    Serial.println("SIIIII");
+  //    mySerialFunction();
+  //  }
+  if (!loadConfig())
+  {
+    Serial.println("Failed to load config");
+  } else
+  {
+    Serial.println("Config loaded");
+    Serial.println(configPackage);
+  }
+  if (downloadConfig != "" && downloadConfig != configPackage)
+    delay(100);
+    if (!saveConfig())
+    {
+      Serial.println("Failed to save config");
+    } else
+    {
+      Serial.println("Config saved");
+      Serial.println(downloadConfig);
+    }
+
   Alarm.delay(1000);
 }
+
+/*void mySerialFunction() {
+  static int state = 0;
+  if (Serial.available()) {
+    char inChar = (char)Serial.read();
+    //Serial.println(inChar);
+    if (inChar == START_CHARACTER && state == 0)
+    {
+      state = 1;
+      receivedPackage = inChar;
+    }
+
+    else if (inChar == START_CHARACTER && state == 1)
+    {
+      state = 1;
+      receivedPackage = inChar;
+    }
+
+    else if (inChar != END_CHARACTER && state == 1)
+    {
+      receivedPackage += inChar;
+    }
+
+    else if (inChar == END_CHARACTER && state == 1)
+    {
+      receivedPackage += inChar;
+      state = 0;
+      packageComplete = true;
+      Serial.println("");
+      Serial.println(receivedPackage);
+      Serial.println("");
+    }
+  }
+  }*/
 
 void enviarMensaje() {
   int distancia = 0;
@@ -211,6 +222,63 @@ void enviarMensaje() {
     }
   */
 }
+
+//-------Función para Enviar Datos a la Base de Datos SQL--------
+
+String enviardatos(String datos)
+{
+  String linea = "error";
+  //WiFiClientSecure client; //esto es para https
+  WiFiClient client;
+  strhost.toCharArray(host, 100);
+  // Serial.println(host);
+  if (!client.connect(host, 80)) {
+    Serial.println("Fallo de conexion");
+    return linea;
+  }
+
+  client.print(String("PUT ") + strurl + " HTTP/1.1" + "\r\n" +
+               "Host: " + strhost + "\r\n" +
+               "Accept: */*" + "*\r\n" +
+               "Content-Length: " + datos.length() + "\r\n" +
+               "Content-Type: application/x-www-form-urlencoded" + "\r\n" +
+               "\r\n" + datos);
+  delay(10);
+
+  //Serial.print("Enviando datos a SQL...");
+
+  unsigned long timeout = millis();
+  while (client.available() == 0)
+  {
+    if (millis() - timeout > 5000)
+    {
+      Serial.println("Cliente fuera de tiempo!");
+      client.stop();
+      return linea;
+    }
+  }
+  // Lee todas las lineas que recibe del servidor y las imprime por la terminal serial
+  while (client.available())
+  {
+    linea = client.readStringUntil('\r');
+  }
+  Serial.println(linea);
+
+  const size_t bufferSize = JSON_OBJECT_SIZE(1) + 145;
+  DynamicJsonBuffer jsonBuffer(bufferSize);
+  char json[146];//"{\"Distancia\":3.44}";
+  linea.toCharArray(json, 146);
+  JsonObject& root = jsonBuffer.parseObject(json);
+  root.prettyPrintTo(Serial);
+  downloadConfig = "";
+  root.printTo(downloadConfig);
+  //float Distancia = root["Distancia"]; // 3.44
+
+  return linea;
+}
+
+//-------------------------------------------------------------------------
+
 
 void digitalClockDisplay()
 {
@@ -478,3 +546,74 @@ bool  checkPackageComplete(void)
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >
 //---------------------------------------------------------------------------------------------------------------//
+bool loadConfig()
+{
+  File configFile = SPIFFS.open("/config.json", "r");
+  if (!configFile)
+  {
+    Serial.println("Failed to open config file");
+    return false;
+  }
+
+  size_t size = configFile.size();
+  if (size > 1024)
+  {
+    Serial.println("Config file size is too large");
+    return false;
+  }
+
+  // Allocate a buffer to store contents of the file.
+  std::unique_ptr<char[]> buf(new char[size]);
+
+  // We don't use String here because ArduinoJson library requires the input
+  // buffer to be mutable. If you don't use ArduinoJson, you may as well
+  // use configFile.readString instead.
+  configFile.readBytes(buf.get(), size);
+
+  StaticJsonBuffer<300> jsonBuffer;
+  JsonObject& json = jsonBuffer.parseObject(buf.get());
+  json.prettyPrintTo(Serial);
+  configPackage = "";
+  json.printTo(configPackage);
+  configFile.close();
+  if (!json.success())
+  {
+    Serial.println("Failed to parse config file");
+    return false;
+  }
+
+  //  const char* serverName = json["serverName"];
+  //  const char* accessToken = json["accessToken"];
+  //
+  //  // Real world application would store these values in some variables for
+  //  // later use.
+  //
+  //  Serial.print("Loaded serverName: ");
+  //  Serial.println(serverName);
+  //  Serial.print("Loaded accessToken: ");
+  //  Serial.println(accessToken);
+  return true;
+}
+
+bool saveConfig() {
+  StaticJsonBuffer<300> jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    json["serverName"] = "Pdrrrrrm";
+    json["accessToken"] = "128du9as8du12eoue8da98h123ueh9h98";
+  //JsonObject& json = jsonBuffer.parseObject(downloadConfig);
+  
+  File configFile = SPIFFS.open("/config.json", "w");
+  if (!configFile)
+  {
+    Serial.println("Failed to open config file for writing");
+    return false;
+  }
+  Serial.println("");
+  Serial.println("");
+  json.printTo(Serial);
+  Serial.println("");
+  Serial.println("");
+  json.printTo(configFile);
+  configFile.close();
+  return true;
+}

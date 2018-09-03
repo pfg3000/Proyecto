@@ -9,6 +9,8 @@
 #include <Wire.h>
 #include <TimeAlarms.h>
 
+#include<SPI.h>
+
 #define idDispositivo "2263874F-4820-4E31-9E37-58E77DD25494"
 
 #define DEBUG
@@ -40,7 +42,12 @@
 #define SIZE_MSG_QUEUE   10
 
 String receivedPackage = "";
-bool   packageComplete = false;
+bool packageComplete = false;
+
+bool enviarPaquete = true;
+unsigned long timeout;
+
+#define SEND_PACKAGE_TIME 15000
 
 //************************** Banderas de comandos y errores, variables varias *********************
 bool CMD_BAJAR_TEMPERATURA_AGUA = false;
@@ -138,12 +145,12 @@ DHT dht(pinDHT, DHTTYPE); //Se inicia una variable que será usada por Arduino p
 #define pHmenosPinRELE8 47 //Seleccionamos el pin en el que se conectará Bomba peristáltica pH-.
 #define LucesPinRELE9 48 //Seleccionamos el pin en el que se conectará Luces Led.
 #define VentiladoresPinRELE10 49 //Seleccionamos el pin en el que se conectará Ventiladores.
-#define CalentadorPinRELE11 50 //Seleccionamos el pin en el que se conectará Calentador.
-#define PHpinRELE12 51 //Seleccionamos el pin en el que se conectará el sensor de ph.
-#define CEpinRELE13 52 //Seleccionamos el pin en el que se conectará el sensor de ce.
-#define pinRELE14 53 //Seleccionamos el pin en el que se conectará **Sin Asignar.
-//#define pinRELE15 44 //Seleccionamos el pin en el que se conectará **Sin Asignar.
-//#define pinRELE16 45 //Seleccionamos el pin en el que se conectará **Sin Asignar.
+#define CalentadorPinRELE11 2 //Seleccionamos el pin en el que se conectará Calentador.
+#define PHpinRELE12 38 //Seleccionamos el pin en el que se conectará el sensor de ph.
+#define CEpinRELE13 39 //Seleccionamos el pin en el que se conectará el sensor de ce.
+//#define pinRELE14  //Seleccionamos el pin en el que se conectará **Sin Asignar.
+//#define pinRELE15  //Seleccionamos el pin en el que se conectará **Sin Asignar.
+//#define pinRELE16  //Seleccionamos el pin en el que se conectará **Sin Asignar.
 
 //************************** Temperatura del agua *****************************************
 const int pinDS18B20 = 23; //Seleccionamos el pin en el que se conectará el sensor DS18B20.
@@ -221,7 +228,7 @@ float pisoTanqueNutrienteB = 0.0;
 
 void setup() {
   Serial.begin(9600); //Se inicia la comunicación serial
-  Serial1.begin(9600);
+  Serial1.begin(2400);
 
   dht.begin(); //Se inicia el sensor DHT22.
   sensorDS18B20.begin(); //Se inicia el sensor DS18B20.
@@ -262,7 +269,7 @@ void setup() {
   pinMode(CalentadorPinRELE11, OUTPUT); //Calentador.
   pinMode(PHpinRELE12, OUTPUT); // **pH.
   pinMode(CEpinRELE13, OUTPUT); // **CE.
-  pinMode(pinRELE14, OUTPUT); // **Sin Asignar.
+  //  pinMode(pinRELE14, OUTPUT); // **Sin Asignar.
   //  pinMode(pinRELE15, OUTPUT); // **Sin Asignar.
   //  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
 
@@ -637,7 +644,16 @@ void loop()
 
   Serial.println("");
 
-  generarJson();
+
+  if (enviarPaquete) {
+    timeout = millis();
+    enviarPaquete = false;
+  }
+  if (millis() - timeout > SEND_PACKAGE_TIME) {
+    Serial.println("GENERANDO JSON");
+    generarJson();
+    enviarPaquete = true;
+  }
 
   Serial.println("");
   Serial.println("");
@@ -1244,13 +1260,14 @@ bool controlarNivelesTanques()
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266
 //---------------------------------------------------------------------------------------------------------------//
-void serialEvent() //Funcion que captura los eventos del puerto serial.
+void serialEvent1() //Funcion que captura los eventos del puerto serial.
 {
   static int state = 0;
   if (Serial1.available()) {
     char inChar = (char)Serial1.read();
-    
-    if (inChar == START_CHARACTER && state == 0)
+     Serial.println("ESP");
+    Serial.println(inChar);
+/*    if (inChar == START_CHARACTER && state == 0)
     {
       state = 1;
       receivedPackage = inChar;
@@ -1272,7 +1289,7 @@ void serialEvent() //Funcion que captura los eventos del puerto serial.
       receivedPackage += inChar;
       state = 0;
       packageComplete = true;
-    }
+    }*/
   }
 }
 
@@ -1605,21 +1622,14 @@ bool generarJson()
   String dato;
   json.printTo(dato);
 
+  char package1[513];
+  char package[520];
+  dato.toCharArray(package1, 513);
 
-  //SERIAL_PRINT(F("\n> ding dong."), "");
+  strcpy(package, preparePackage(package1, strlen(package1)));
+  SERIAL_PRINT("package: ", package);
 
-  //char cmd[] = "01";
-  //char data[5];
-  //char payLoad[20];
-  char pakage1[513];
-  char pakage[520];
-  dato.toCharArray(pakage1, 513);
-  //01x034
-  //snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "Ding-Dong");
-  //SERIAL_PRINT(F("payLoad: "), payLoad);
-  strcpy(pakage, preparePackage(pakage1, strlen(pakage1)));
-  SERIAL_PRINT("pakage: ", pakage);
-  Serial1.println(pakage);
+  Serial1.println(package);
 }
 
 bool generarAlerta(String mensaje)
