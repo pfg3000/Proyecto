@@ -1,4 +1,7 @@
 {
-	"serverName": "tuServidor",
-	"accessToken": "contrasena"
+	"idDispositivo": "HDRMP",
+	"Notificaciones": "000",
+	"CantidadHorasLuz": "00",
+	"HoraInicioLuz": "00",
+	"PH_aceptable": "00"
 }

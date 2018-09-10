@@ -13,7 +13,7 @@
 #define DEBUG
 //********************************** PROTOCOLO DE COMUNICACION *****************************
 #ifdef  DEBUG
-#define DELIMITER_CHARACTER '|'
+#define DELIMITER_CHARACTER '$'
 #define START_CHARACTER '#'
 #define END_CHARACTER '*'
 #define SERIAL_PRINT(x,y)        Serial.print(x);Serial.println(y);
@@ -58,14 +58,23 @@ String chipid = ""; //identificador unico de la placa de m
 String configPackage = "";
 String downloadConfig = "";
 
+int NotificacionesReal = 15;
+const char* idDispositivo;
+int Notificaciones;
+int CantidadHorasLuz;
+int HoraInicioLuz;
+float PH_aceptable;
+
+AlarmId loggit;
+
 void setup() {
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
 
   int contconexion = 0;
   // Inicia Serial
-  Serial.begin(2400);
-  //  Serial.swap();
+  Serial.begin(4800);
+  //Serial.swap();
   //  pinMode(13, INPUT);
   //  pinMode(15, OUTPUT);
   Serial.println("");
@@ -106,46 +115,112 @@ void setup() {
     Serial.println("Failed to mount file system");
     return;
   }
+
+  if (!loadConfig())
+  {
+    Serial.println("Failed to load config");
+  }
+  else
+  {
+    Serial.println("Config loaded");
+    Serial.println(configPackage);
+  }
 }
 
 //--------------------------LOOP--------------------------------
 void loop() {
-  Serial.println("");
+  //Serial.println("");
   if (CONFIGURAR_ALARMAS)
   {
     setTime(0, 0, 0, 1, 1, 2000);
-    Alarm.timerRepeat(15, enviarMensaje);
+    loggit = Alarm.timerRepeat(NotificacionesReal, enviarMensaje);
     //Alarm.disable();
     CONFIGURAR_ALARMAS = false;
+
+    enviarPaquete();
   }
+
   //digitalClockDisplay();
 
   //  if (SoftSerial.available()) {
   //    Serial.println("SIIIII");
   //    mySerialFunction();
   //  }
-  if (!loadConfig())
-  {
-    Serial.println("Failed to load config");
-  } else
-  {
-    Serial.println("Config loaded");
-    Serial.println(configPackage);
-  }
+  //serialEvent();
+
   if (downloadConfig != "" && downloadConfig != configPackage)
-    delay(100);
+  {
+    delay(10);
     if (!saveConfig())
     {
       Serial.println("Failed to save config");
-    } else
+    }
+    else
     {
       Serial.println("Config saved");
       Serial.println(downloadConfig);
+      if (NotificacionesReal != Notificaciones) {
+        CONFIGURAR_ALARMAS = true;
+        Alarm.disable(loggit);
+      }
+      enviarPaquete();
     }
-
+  }
   Alarm.delay(1000);
 }
 
+String parameterToJson(String nombre, String valor)
+{
+  return "{\"" + nombre + "\": \"" + valor + "\"}";
+}
+//---------------------------------------------------------------------------------------------------------------//
+String floatTOstring(float x)//Convertir de float a String
+{
+  return String(x);
+}
+//---------------------------------------------------------------------------------------------------------------//
+String intTOstring(int x)//Convertir de int a String
+{
+  return String(x);
+}
+
+bool enviarPaquete()
+{
+  char cmd[] = "01";
+  char payLoad[30];
+  char package[50];
+  char aux[300];
+
+  parameterToJson("CantidadHorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 30);
+
+  snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+  strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+  Serial.print(package);
+
+  strcpy(cmd, "02");
+  strcpy(payLoad, "");
+  strcpy(package, "");
+  strcpy(aux, "");
+
+  parameterToJson("HoraInicioLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 30);
+
+  snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+  strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+  Serial.print(package);
+
+  strcpy(cmd, "03");
+  strcpy(payLoad, "");
+  strcpy(package, "");
+  strcpy(aux, "");
+
+  parameterToJson("PH_aceptable", intTOstring(PH_aceptable)).toCharArray(aux, 30);
+
+  snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+  strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+  Serial.print(package);
+
+  return true;
+}
 /*void mySerialFunction() {
   static int state = 0;
   if (Serial.available()) {
@@ -196,8 +271,8 @@ void enviarMensaje() {
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
   json["Distancia"] = distancia;
-  Serial.println();
-  json.prettyPrintTo(Serial);
+  //  Serial.println();
+  //  json.prettyPrintTo(Serial);
   String dato;
   json.printTo(dato);
   enviardatos("dato=" + dato);
@@ -262,18 +337,55 @@ String enviardatos(String datos)
   {
     linea = client.readStringUntil('\r');
   }
-  Serial.println(linea);
 
-  const size_t bufferSize = JSON_OBJECT_SIZE(1) + 145;
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  char json[146];//"{\"Distancia\":3.44}";
-  linea.toCharArray(json, 146);
+
+
+  StaticJsonBuffer<500> jsonBuffer;
+  char json[300];
+  linea.toCharArray(json, 300);
   JsonObject& root = jsonBuffer.parseObject(json);
-  root.prettyPrintTo(Serial);
+  idDispositivo = root["idDispositivo"];
+  Notificaciones = root["Notificaciones"];
+  CantidadHorasLuz = root["CantidadHorasLuz"];
+  HoraInicioLuz = root["HoraInicioLuz"];
+  PH_aceptable = root["PH_aceptable"];
+
+  //  SERIAL_PRINT("id=", idDispositivo);
+  //  SERIAL_PRINT("N=", Notificaciones);
+  //  SERIAL_PRINT("CHL=", CantidadHorasLuz);
+  //  SERIAL_PRINT("HL=", HoraInicioLuz);
+  //  SERIAL_PRINT("PH=", PH_aceptable);
+
   downloadConfig = "";
   root.printTo(downloadConfig);
-  //float Distancia = root["Distancia"]; // 3.44
 
+
+  /*  char package1[144];
+    char package[151];
+
+    linea.toCharArray(package1, 151);
+
+    strcpy(package, preparePackage(package1, strlen(package1)));
+    Serial.flush();
+
+    Serial.println("");
+    for (int i = 0; i < strlen(package); i++) {
+      Serial.write(package[i]);
+      if (i % 63 == 0)
+        delay(500);
+    }
+  */
+  /*
+    const size_t bufferSize = JSON_OBJECT_SIZE(1) + 145;
+    DynamicJsonBuffer jsonBuffer(bufferSize);
+    char json[146];
+    linea.toCharArray(json, 146);
+    JsonObject& root = jsonBuffer.parseObject(json);
+    //root.prettyPrintTo(Serial);
+    downloadConfig = "";
+    root.printTo(downloadConfig);
+    //float Distancia = root["Distancia"]; // 3.44
+  */
   return linea;
 }
 
@@ -303,32 +415,41 @@ void serialEvent() //Funcion que captura los eventos del puerto serial.
 {
   static int state = 0;
   if (Serial.available()) {
-    char inChar = (char)Serial.read();
 
-    if (inChar == START_CHARACTER && state == 0)
-    {
+    while (Serial.available()) {
+      char inChar = (char)Serial.read();
+
+      Serial.print(inChar);
+
+    }
+    Serial.println("pong");
+    /*
+      char inChar = (char)Serial.read();
+
+      if (inChar == START_CHARACTER && state == 0)
+      {
       state = 1;
       receivedPackage = inChar;
-    }
+      }
 
-    else if (inChar == START_CHARACTER && state == 1)
-    {
+      else if (inChar == START_CHARACTER && state == 1)
+      {
       state = 1;
       receivedPackage = inChar;
-    }
+      }
 
-    else if (inChar != END_CHARACTER && state == 1)
-    {
+      else if (inChar != END_CHARACTER && state == 1)
+      {
       receivedPackage += inChar;
-    }
+      }
 
-    else if (inChar == END_CHARACTER && state == 1)
-    {
+      else if (inChar == END_CHARACTER && state == 1)
+      {
       receivedPackage += inChar;
       state = 0;
       packageComplete = true;
       Serial.print(receivedPackage);
-    }
+      }*/
   }
 }
 
@@ -572,7 +693,7 @@ bool loadConfig()
 
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& json = jsonBuffer.parseObject(buf.get());
-  json.prettyPrintTo(Serial);
+  //json.prettyPrintTo(Serial);
   configPackage = "";
   json.printTo(configPackage);
   configFile.close();
@@ -581,6 +702,18 @@ bool loadConfig()
     Serial.println("Failed to parse config file");
     return false;
   }
+
+  idDispositivo = json["idDispositivo"];
+  Notificaciones = json["Notificaciones"];
+  CantidadHorasLuz = json["CantidadHorasLuz"];
+  HoraInicioLuz = json["HoraInicioLuz"];
+  PH_aceptable = json["PH_aceptable"];
+
+  //  SERIAL_PRINT("id=", idDispositivo);
+  //  SERIAL_PRINT("N=", Notificaciones);
+  //  SERIAL_PRINT("CHL=", CantidadHorasLuz);
+  //  SERIAL_PRINT("HL=", HoraInicioLuz);
+  //  SERIAL_PRINT("PH=", PH_aceptable);
 
   //  const char* serverName = json["serverName"];
   //  const char* accessToken = json["accessToken"];
@@ -597,11 +730,11 @@ bool loadConfig()
 
 bool saveConfig() {
   StaticJsonBuffer<300> jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
-    json["serverName"] = "Pdrrrrrm";
-    json["accessToken"] = "128du9as8du12eoue8da98h123ueh9h98";
-  //JsonObject& json = jsonBuffer.parseObject(downloadConfig);
-  
+  //  JsonObject& json = jsonBuffer.createObject();
+  //  json["serverName"] = "Pdrrrrrm";
+  //  json["accessToken"] = "128du9as8du12eoue8da98h123ueh9h98";
+  JsonObject& json = jsonBuffer.parseObject(downloadConfig);
+
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile)
   {
@@ -610,7 +743,7 @@ bool saveConfig() {
   }
   Serial.println("");
   Serial.println("");
-  json.printTo(Serial);
+  //json.printTo(Serial);
   Serial.println("");
   Serial.println("");
   json.printTo(configFile);

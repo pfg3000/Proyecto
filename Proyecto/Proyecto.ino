@@ -9,7 +9,7 @@
 #include <Wire.h>
 #include <TimeAlarms.h>
 
-#include<SPI.h>
+//#include<SPI.h>
 
 #define idDispositivo "2263874F-4820-4E31-9E37-58E77DD25494"
 
@@ -228,7 +228,7 @@ float pisoTanqueNutrienteB = 0.0;
 
 void setup() {
   Serial.begin(9600); //Se inicia la comunicación serial
-  Serial1.begin(2400);
+  Serial1.begin(4800);
 
   dht.begin(); //Se inicia el sensor DHT22.
   sensorDS18B20.begin(); //Se inicia el sensor DS18B20.
@@ -282,10 +282,12 @@ void setup() {
     luego seteamos la alarma inicial y la alarma final para encender y apagar las luces.
     cambiamos el delay(2000); del loop por Alarm.delay(1000);
   */
+  Serial1.flush();
 }
 
 void loop()
 {
+ /* 
   //checkPackageComplete();
 
   //Tomar parametros del cultivo.
@@ -368,7 +370,7 @@ void loop()
     }
     // CONFIGURAR_ALARMAS = false;
   }
-  digitalClockDisplay();
+  //digitalClockDisplay();
 
   if (!controlarNivelesPH())
   {
@@ -598,67 +600,68 @@ void loop()
         //apagarVentiladores();
       }
     }
-  }
+  }*/
+  /*
+    //Se imprimen las variables
+    Serial.print("Humedad: ");
+    Serial.print(medicionHumedad);
+    Serial.println(" %");
 
-  //Se imprimen las variables
-  Serial.print("Humedad: ");
-  Serial.print(medicionHumedad);
-  Serial.println(" %");
+    Serial.print("Temperatura: ");
+    Serial.print(medicionTemperaturaAire);
+    Serial.println(" ºC");
 
-  Serial.print("Temperatura: ");
-  Serial.print(medicionTemperaturaAire);
-  Serial.println(" ºC");
+    Serial.print("Nutrientes A: ");
+    Serial.println(medicionNivelNutrienteA);
+    Serial.print("Nutrientes B: ");
+    Serial.println(medicionNivelNutrienteB);
 
-  Serial.print("Nutrientes A: ");
-  Serial.println(medicionNivelNutrienteA);
-  Serial.print("Nutrientes B: ");
-  Serial.println(medicionNivelNutrienteB);
+    Serial.print("pH+: ");
+    Serial.println(medicionNivelPHmas);
+    Serial.print("pH-: ");
+    Serial.println(medicionNivelPHmenos);
 
-  Serial.print("pH+: ");
-  Serial.println(medicionNivelPHmas);
-  Serial.print("pH-: ");
-  Serial.println(medicionNivelPHmenos);
+    Serial.print("Temperatura agua: ");
+    Serial.print(medicionTemperaturaAgua);
+    Serial.println(" ºC");
 
-  Serial.print("Temperatura agua: ");
-  Serial.print(medicionTemperaturaAgua);
-  Serial.println(" ºC");
+    Serial.print("PH: ");
+    Serial.println(medicionPH, 3);
 
-  Serial.print("PH: ");
-  Serial.println(medicionPH, 3);
+    Serial.print("Tanque de agua limpia ");
+    Serial.println(medicionNivelTanqueAguaLimpia);
+    Serial.print("Tanque de agua descartada ");
+    Serial.println(medicionNivelTanqueDesechable);
+    Serial.print("Tanque de agua principal ");
+    Serial.println(medicionNivelTanquePrincial);
 
-  Serial.print("Tanque de agua limpia ");
-  Serial.println(medicionNivelTanqueAguaLimpia);
-  Serial.print("Tanque de agua descartada ");
-  Serial.println(medicionNivelTanqueDesechable);
-  Serial.print("Tanque de agua principal ");
-  Serial.println(medicionNivelTanquePrincial);
+    Serial.print("CO2: ");
+    Serial.print(medicionCO2);
+    Serial.println(" ppm");
 
-  Serial.print("CO2: ");
-  Serial.print(medicionCO2);
-  Serial.println(" ppm");
+    //    Serial.println("sensor=");
+    //    Serial.print(sensorValue);
+    Serial.print("CE: ");
+    Serial.println(medicionCE);
 
-  //    Serial.println("sensor=");
-  //    Serial.print(sensorValue);
-  Serial.print("CE: ");
-  Serial.println(medicionCE);
-
-  Serial.println("");
+    Serial.println("");
 
 
-  if (enviarPaquete) {
-    timeout = millis();
-    enviarPaquete = false;
-  }
-  if (millis() - timeout > SEND_PACKAGE_TIME) {
-    Serial.println("GENERANDO JSON");
-    generarJson();
-    enviarPaquete = true;
-  }
+    if (enviarPaquete) {
+      timeout = millis();
+      enviarPaquete = false;
+    }
+    if (millis() - timeout > SEND_PACKAGE_TIME) {
+      Serial.println("GENERANDO JSON");
+      generarJson();
+      enviarPaquete = true;
+    }
 
-  Serial.println("");
-  Serial.println("");
-
-  Alarm.delay(1000); //delay(2000); //Se espera 2 segundos para seguir leyendo //datos
+    Serial.println("");
+    Serial.println("");
+  */
+  //Alarm.
+  delay(100); //delay(2000); //Se espera 2 segundos para seguir leyendo //datos
 }
 
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
@@ -1262,35 +1265,52 @@ bool controlarNivelesTanques()
 //---------------------------------------------------------------------------------------------------------------//
 void serialEvent1() //Funcion que captura los eventos del puerto serial.
 {
+  Serial.println("0");
   static int state = 0;
+  //Serial1.setTimeout(2000);
   if (Serial1.available()) {
-    char inChar = (char)Serial1.read();
-     Serial.println("ESP");
-    Serial.println(inChar);
-/*    if (inChar == START_CHARACTER && state == 0)
-    {
-      state = 1;
-      receivedPackage = inChar;
-    }
+//       String pepe;
+//    pepe = Serial1.readStringUntil("*");
+//    Serial.print(pepe);
+//    Serial1.flush();
+        
+        while (Serial1.available()) {
+          char inChar = (char)Serial1.read();
+    
+          Serial.print(inChar);
+    delay(100);
+        }
+    /*    while (Serial1.available()) {
+          char inChar = (char)Serial1.read();
+          if (inChar == START_CHARACTER && state == 0)
+          {
+            state = 1;
+            receivedPackage = inChar;
+          }
 
-    else if (inChar == START_CHARACTER && state == 1)
-    {
-      state = 1;
-      receivedPackage = inChar;
-    }
+          else if (inChar == START_CHARACTER && state == 1)
+          {
+            state = 1;
+            receivedPackage = inChar;
+          }
 
-    else if (inChar != END_CHARACTER && state == 1)
-    {
-      receivedPackage += inChar;
-    }
+          else if (inChar != END_CHARACTER && state == 1)
+          {
+            receivedPackage += inChar;
+          }
 
-    else if (inChar == END_CHARACTER && state == 1)
-    {
-      receivedPackage += inChar;
-      state = 0;
-      packageComplete = true;
-    }*/
+          else if (inChar == END_CHARACTER && state == 1)
+          {
+            receivedPackage += inChar;
+            state = 0;
+            packageComplete = true;
+            Serial.println("1");
+            Serial.println(receivedPackage);
+            Serial.println("2");
+          }
+        }*/
   }
+  Serial.println("3");
 }
 
 //---------------------------------------------------------------------------------------------------------------//
@@ -1634,7 +1654,7 @@ bool generarJson()
 
 bool generarAlerta(String mensaje)
 {
-  Serial.println(mensaje);
+  //Serial.println(mensaje);
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para la generacion de alertas >
