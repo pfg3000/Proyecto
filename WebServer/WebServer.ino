@@ -59,6 +59,8 @@ String configPackage = "";
 String downloadConfig = "";
 
 int NotificacionesReal = 15;
+int CantidadHorasLuzReal = 3;
+float PH_aceptableReal = 7;
 const char* idDispositivo;
 int Notificaciones;
 int CantidadHorasLuz;
@@ -123,7 +125,9 @@ void setup() {
   else
   {
     Serial.println("Config loaded");
-    Serial.println(configPackage);
+    //Serial.println(configPackage);
+    delay(200);
+    enviarPaquete();
   }
 }
 
@@ -133,11 +137,10 @@ void loop() {
   if (CONFIGURAR_ALARMAS)
   {
     setTime(0, 0, 0, 1, 1, 2000);
-    loggit = Alarm.timerRepeat(NotificacionesReal, enviarMensaje);
+    loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
     //Alarm.disable();
     CONFIGURAR_ALARMAS = false;
 
-    enviarPaquete();
   }
 
   //digitalClockDisplay();
@@ -158,11 +161,17 @@ void loop() {
     else
     {
       Serial.println("Config saved");
-      Serial.println(downloadConfig);
+      //Serial.println(downloadConfig);
       if (NotificacionesReal != Notificaciones) {
+        NotificacionesReal = Notificaciones;
         CONFIGURAR_ALARMAS = true;
         Alarm.disable(loggit);
       }
+      if (!loadConfig())
+      {
+        Serial.println("Failed to load config");
+      }
+      delay(200);
       enviarPaquete();
     }
   }
@@ -186,6 +195,7 @@ String intTOstring(int x)//Convertir de int a String
 
 bool enviarPaquete()
 {
+  delay(100);
   char cmd[] = "01";
   char payLoad[30];
   char package[50];
@@ -197,6 +207,8 @@ bool enviarPaquete()
   strcpy(package, preparePackage(payLoad, strlen(payLoad)));
   Serial.print(package);
 
+  delay(100);
+
   strcpy(cmd, "02");
   strcpy(payLoad, "");
   strcpy(package, "");
@@ -207,6 +219,8 @@ bool enviarPaquete()
   snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
   strcpy(package, preparePackage(payLoad, strlen(payLoad)));
   Serial.print(package);
+
+  delay(100);
 
   strcpy(cmd, "03");
   strcpy(payLoad, "");
@@ -275,7 +289,7 @@ void enviarMensaje() {
   //  json.prettyPrintTo(Serial);
   String dato;
   json.printTo(dato);
-  enviardatos("dato=" + dato);
+  //enviardatos("dato=" + dato);
 
   /*
     //  Pedir el Json del servidor
@@ -283,7 +297,7 @@ void enviarMensaje() {
     {
       HTTPClient http;  //Object of class HTTPClient
       //http.begin("http://jsonplaceholder.typicode.com/users/1");
-      http.begin("http://clientes.webbuilders.com.ar/test.txt");
+      http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php");
 
       int httpCode = http.GET();
       //Check the returning code
@@ -294,14 +308,26 @@ void enviarMensaje() {
         Serial.print(payload);
       }
       http.end();   //Close connection
-    }
-  */
+    }*/
+
 }
 
-//-------Función para Enviar Datos a la Base de Datos SQL--------
+//-------
 
-String enviardatos(String datos)
-{
+void enviardatos()
+{ String datos;
+  int distancia = 0;
+  //crear Json
+
+  StaticJsonBuffer<200> jsonBuffer1;
+  JsonObject& json1 = jsonBuffer1.createObject();
+  json1["Distancia"] = distancia;
+  //  Serial.println();
+  //  json.prettyPrintTo(Serial);
+  String dato;
+  json1.printTo(dato);
+  datos = "dato=" + dato;
+
   String linea = "error";
   //WiFiClientSecure client; //esto es para https
   WiFiClient client;
@@ -309,7 +335,7 @@ String enviardatos(String datos)
   // Serial.println(host);
   if (!client.connect(host, 80)) {
     Serial.println("Fallo de conexion");
-    return linea;
+    //return linea;
   }
 
   client.print(String("PUT ") + strurl + " HTTP/1.1" + "\r\n" +
@@ -329,7 +355,7 @@ String enviardatos(String datos)
     {
       Serial.println("Cliente fuera de tiempo!");
       client.stop();
-      return linea;
+      //return linea;
     }
   }
   // Lee todas las lineas que recibe del servidor y las imprime por la terminal serial
@@ -386,7 +412,7 @@ String enviardatos(String datos)
     root.printTo(downloadConfig);
     //float Distancia = root["Distancia"]; // 3.44
   */
-  return linea;
+  //return linea;
 }
 
 //-------------------------------------------------------------------------
