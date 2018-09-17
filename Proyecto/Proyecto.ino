@@ -9,9 +9,81 @@
 #include <Wire.h>
 #include <TimeAlarms.h>
 
-//#include<SPI.h>
+#include <SPI.h>
+//********************************** << PROTOCOLO SPI *****************************
+class ESPSafeMaster {
+  private:
+    uint8_t _ss_pin;
+    void _pulseSS() {
+      digitalWrite(_ss_pin, HIGH);
+      delayMicroseconds(5);
+      digitalWrite(_ss_pin, LOW);
+    }
+  public:
+    ESPSafeMaster(uint8_t pin): _ss_pin(pin) {}
+    void begin() {
+      pinMode(_ss_pin, OUTPUT);
+      _pulseSS();
+    }
 
-#define idDispositivo "2263874F-4820-4E31-9E37-58E77DD25494"
+    uint32_t readStatus() {
+      _pulseSS();
+      SPI.transfer(0x04);
+      uint32_t status = (SPI.transfer(0) | ((uint32_t)(SPI.transfer(0)) << 8) | ((uint32_t)(SPI.transfer(0)) << 16) | ((uint32_t)(SPI.transfer(0)) << 24));
+      _pulseSS();
+      return status;
+    }
+
+    void writeStatus(uint32_t status) {
+      _pulseSS();
+      SPI.transfer(0x01);
+      SPI.transfer(status & 0xFF);
+      SPI.transfer((status >> 8) & 0xFF);
+      SPI.transfer((status >> 16) & 0xFF);
+      SPI.transfer((status >> 24) & 0xFF);
+      _pulseSS();
+    }
+
+    void readData(uint8_t * data) {
+      _pulseSS();
+      SPI.transfer(0x03);
+      SPI.transfer(0x00);
+      for (uint8_t i = 0; i < 32; i++) {
+        data[i] = SPI.transfer(0);
+      }
+      _pulseSS();
+    }
+
+    void writeData(uint8_t * data, size_t len) {
+      uint8_t i = 0;
+      _pulseSS();
+      SPI.transfer(0x02);
+      SPI.transfer(0x00);
+      while (len-- && i < 32) {
+        SPI.transfer(data[i++]);
+      }
+      while (i++ < 32) {
+        SPI.transfer(0);
+      }
+      _pulseSS();
+    }
+
+    String readData() {
+      char data[33];
+      data[32] = 0;
+      readData((uint8_t *)data);
+      return String(data);
+    }
+
+    void writeData(const char * data) {
+      writeData((uint8_t *)data, strlen(data));
+    }
+};
+
+ESPSafeMaster esp(SS);
+
+
+//********************************** PROTOCOLO SPI >> *****************************
 
 #define DEBUG
 //********************************** PROTOCOLO DE COMUNICACION *****************************
@@ -36,7 +108,7 @@
 #define OPEN                     65
 
 #define PACKAGE_FORMAT   "%c%c%s%c%s%c%c" //start character + delimiter character + payLoad + delimiter character + checksum + delimiter character + end character.
-#define SIZE_PAYLOAD     513//40
+#define SIZE_PAYLOAD     25
 #define SIZE_PACKAGE     SIZE_PAYLOAD + 7
 #define SIZE_CHECKSUM    3
 #define SIZE_MSG_QUEUE   10
@@ -276,18 +348,13 @@ void setup() {
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
 
-  /*
-    Tomamos el parametro de horaInicioLuz y de hsLuzParametro
-    seteamos el reloj con la hora del reloj RTC
-    luego seteamos la alarma inicial y la alarma final para encender y apagar las luces.
-    cambiamos el delay(2000); del loop por Alarm.delay(1000);
-  */
-  Serial1.flush();
+  SPI.begin();
+  esp.begin();
 }
 
 void loop()
 {
- /* 
+
   //checkPackageComplete();
 
   //Tomar parametros del cultivo.
@@ -342,6 +409,11 @@ void loop()
   pisoTanquePHmenos = 15.0;
   pisoTanqueNutrienteA = 15.0;
   pisoTanqueNutrienteB = 15.0;
+
+  //    Tomamos el parametro de horaInicioLuz y de hsLuzParametro
+  //    seteamos el reloj con la hora del reloj RTC
+  //    luego seteamos la alarma inicial y la alarma final para encender y apagar las luces.
+  //    cambiamos el delay(2000); del loop por Alarm.delay(1000);
 
   if (CONFIGURAR_ALARMAS)
   {
@@ -600,7 +672,7 @@ void loop()
         //apagarVentiladores();
       }
     }
-  }*/
+  }
   /*
     //Se imprimen las variables
     Serial.print("Humedad: ");
@@ -645,23 +717,23 @@ void loop()
     Serial.println(medicionCE);
 
     Serial.println("");
-
-
-    if (enviarPaquete) {
-      timeout = millis();
-      enviarPaquete = false;
-    }
-    if (millis() - timeout > SEND_PACKAGE_TIME) {
-      Serial.println("GENERANDO JSON");
-      generarJson();
-      enviarPaquete = true;
-    }
-
-    Serial.println("");
-    Serial.println("");
   */
-  //Alarm.
-  delay(100); //delay(2000); //Se espera 2 segundos para seguir leyendo //datos
+
+  if (enviarPaquete) {
+    timeout = millis();
+    enviarPaquete = false;
+  }
+  if (millis() - timeout > SEND_PACKAGE_TIME) {
+    Serial.println("GENERANDO JSON");
+    enviarInformacion();
+    generarJson();
+    enviarPaquete = true;
+  }
+
+  //  Serial.println("");
+  //  Serial.println("");
+
+  Alarm.delay(1000); //delay(2000); //Se espera 2 segundos para seguir leyendo //datos
 }
 
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
@@ -1263,55 +1335,55 @@ bool controlarNivelesTanques()
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266
 //---------------------------------------------------------------------------------------------------------------//
-void serialEvent1() //Funcion que captura los eventos del puerto serial.
-{
-  Serial.println("0");
-  static int state = 0;
-  //Serial1.setTimeout(2000);
-  if (Serial1.available()) {
-//       String pepe;
-//    pepe = Serial1.readStringUntil("*");
-//    Serial.print(pepe);
-//    Serial1.flush();
-        
-        while (Serial1.available()) {
-          char inChar = (char)Serial1.read();
-    
-          Serial.print(inChar);
-    delay(100);
-        }
-    /*    while (Serial1.available()) {
-          char inChar = (char)Serial1.read();
-          if (inChar == START_CHARACTER && state == 0)
-          {
-            state = 1;
-            receivedPackage = inChar;
-          }
-
-          else if (inChar == START_CHARACTER && state == 1)
-          {
-            state = 1;
-            receivedPackage = inChar;
-          }
-
-          else if (inChar != END_CHARACTER && state == 1)
-          {
-            receivedPackage += inChar;
-          }
-
-          else if (inChar == END_CHARACTER && state == 1)
-          {
-            receivedPackage += inChar;
-            state = 0;
-            packageComplete = true;
-            Serial.println("1");
-            Serial.println(receivedPackage);
-            Serial.println("2");
-          }
-        }*/
-  }
-  Serial.println("3");
-}
+//void serialEvent1() //Funcion que captura los eventos del puerto serial.
+//{
+//  Serial.println("0");
+//  static int state = 0;
+//  //Serial1.setTimeout(2000);
+//  if (Serial1.available()) {
+//    //       String pepe;
+//    //    pepe = Serial1.readStringUntil("*");
+//    //    Serial.print(pepe);
+//    //    Serial1.flush();
+//
+//    while (Serial1.available()) {
+//      char inChar = (char)Serial1.read();
+//
+//      Serial.print(inChar);
+//      delay(100);
+//    }
+//    /*    while (Serial1.available()) {
+//          char inChar = (char)Serial1.read();
+//          if (inChar == START_CHARACTER && state == 0)
+//          {
+//            state = 1;
+//            receivedPackage = inChar;
+//          }
+//
+//          else if (inChar == START_CHARACTER && state == 1)
+//          {
+//            state = 1;
+//            receivedPackage = inChar;
+//          }
+//
+//          else if (inChar != END_CHARACTER && state == 1)
+//          {
+//            receivedPackage += inChar;
+//          }
+//
+//          else if (inChar == END_CHARACTER && state == 1)
+//          {
+//            receivedPackage += inChar;
+//            state = 0;
+//            packageComplete = true;
+//            Serial.println("1");
+//            Serial.println(receivedPackage);
+//            Serial.println("2");
+//          }
+//        }*/
+//  }
+//  Serial.println("3");
+//}
 
 //---------------------------------------------------------------------------------------------------------------//
 char* calcChecksum(const char *data, int length)
@@ -1425,16 +1497,15 @@ char *disarmPackage(const char *package, int length)
 //---------------------------------------------------------------------------------------------------------------//
 int disarmPayLoad(const char *payLoad, int length, char *data) //*********************************************************************************************************** VER
 {
-
   char command[3];
   memcpy(command, payLoad, 2 * sizeof(char));
   command[2] = '\0';
 
   int cmd = atoi(command);
-  if (cmd > 0 && cmd < 9)
+  if (cmd > 0 && cmd < 100)
   {
     //if (cmd == 6) {  // unico comando proveniente desde la raspberry con datos;
-    memcpy (data, payLoad + 2, (length - 2)*sizeof(char));
+    memcpy (data, payLoad + 3, (length - 2)*sizeof(char));
     data[length - 2] = '\0';
     // }
     return cmd;
@@ -1472,57 +1543,47 @@ int proccesPackage(String package, int length)
   }
 }
 //---------------------------------------------------------------------------------------------------------------//
-bool  checkPackageComplete(void)
+bool  checkPackageComplete()
 {
-  if (packageComplete)
+  //  if (packageComplete)
+  //  {
+  //    packageComplete = false;
+  int retCmd = proccesPackage(receivedPackage, receivedPackage.length());
+
+  if (retCmd == ERROR_CODE)
   {
-    packageComplete = false;
-    int retCmd = proccesPackage(receivedPackage, receivedPackage.length());
-
-    if (retCmd == ERROR_CODE)
-    {
-      SERIAL_PRINT("> Error unknown command !!", "");
-    }
-    else if (retCmd == ERROR_BAD_CHECKSUM)
-    {
-      SERIAL_PRINT("> Error bad checksum!!", "");
-    }
-    else
-    {
-      /*      switch (retCmd) {
-              case OPEN_DOOR:
-                SERIAL_PRINT("> Command Open Door", "");
-                openDoor = true;
-                break;
-
-              case CLOSE_DOOR:
-                SERIAL_PRINT("> Command Close Door", "");
-                closeDoor = true;
-                break;
-
-              case CARD_VALID:
-                SERIAL_PRINT("> Command Card Valid", "");
-                openDoor = true;
-                break;
-
-              case CARD_NOT_VALID:
-                SERIAL_PRINT("> Command Card not Valid", "");
-                push_Msg_inQueue(MSG_INVALID_CARD);
-                refreshDisplay = true;
-                break;
-
-              case ACK_BUTTON_PRESSED:
-                SERIAL_PRINT("> Command ACK button pressed", "");
-                break;
-
-              case ACK_OPEN_DOOR:
-                SERIAL_PRINT(F("> Command ACK Open Door"), "");
-                break;
-            }*/
-    }
-    return true;
+    SERIAL_PRINT("> Error unknown command !!", "");
+    return false;
   }
-  return false;
+  else if (retCmd == ERROR_BAD_CHECKSUM)
+  {
+    SERIAL_PRINT("> Error bad checksum!!", "");
+    return false;
+  }
+  else
+  {
+    switch (retCmd) {
+      case 1:
+        SERIAL_PRINT("HorasLuz", "");
+        break;
+      case 2:
+        SERIAL_PRINT("HoraInicioLuz", "");
+        break;
+      case 3:
+        SERIAL_PRINT("pHaceptable", "");
+        break;
+      case 98:
+        SERIAL_PRINT("OK", "");
+        break;
+      case 99:
+        SERIAL_PRINT("ER", "");
+        return false;
+        break;
+    }
+  }
+  return true;
+  //  }
+  //  return false;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >
@@ -1616,11 +1677,6 @@ bool generarJson()
   //crear Json
   StaticJsonBuffer<290> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
-  json["idDispositivo"] = idDispositivo;
-  json["Notificaciones"] = "000";
-  json["CantidadHorasLuz"] = "00";
-  json["HoraInicioLuz"] = "00";
-  json["PH_aceptable"] = "00";
   json["HumedadAire"] = completarLargo(floatTOstring(medicionHumedad), 5, 1);
   json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 8, 1);
   json["TemperaturaAire"] = completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1);
@@ -1637,31 +1693,139 @@ bool generarJson()
   json["Alertas"] = auxArray;
   json["Errores"] = auxArray2;
 
-  Serial.println();
-  json.prettyPrintTo(Serial);
-  String dato;
-  json.printTo(dato);
-
-  char package1[513];
-  char package[520];
-  dato.toCharArray(package1, 513);
-
-  strcpy(package, preparePackage(package1, strlen(package1)));
-  SERIAL_PRINT("package: ", package);
-
-  Serial1.println(package);
+  //  Serial.println();
+    json.prettyPrintTo(Serial);
+  //  String dato;
+  //  json.printTo(dato);
+  //
+  //  char package1[513];
+  //  char package[520];
+  //  dato.toCharArray(package1, 513);
+  //
+  //  strcpy(package, preparePackage(package1, strlen(package1)));
+  //  SERIAL_PRINT("package: ", package);
+  //
+  //  Serial1.println(package);
 }
+//---------------------------------------------------------------------------------------------------------------//
+bool enviarInformacion()
+{
+  String auxArray = generarArrayAlertas();
+  String auxArray2 = generarArrayErrores();
 
+  for (int i = 1; i <= 15; i++)
+  {
+    switch (i)
+    {
+      case 1:
+        if (!sendPackage("HumAire", i, completarLargo(floatTOstring(medicionHumedad), 5, 1)))
+          i--;
+        break;
+      case 2:
+        if (!sendPackage("CO2", i, completarLargo(floatTOstring(medicionCO2), 8, 1)))
+          i--;
+        break;
+      case 3:
+        if (!sendPackage("TempAire", i, completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1)))
+          i--;
+        break;
+      case 4:
+        if (!sendPackage("TempAgua", i, completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1)))
+          i--;
+        break;
+      case 5:
+        if (!sendPackage("PH", i, completarLargo(floatTOstring(medicionPH), 6, 1)))
+          i--;
+        break;
+      case 6:
+        if (!sendPackage("CE", i, completarLargo(floatTOstring(medicionCE), 6, 1)))
+          i--;
+        break;
+      case 7:
+        if (!sendPackage("NivelTanqueP", i, intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal))))
+          i--;
+        break;
+      case 8:
+        if (!sendPackage("NivelTanqueL", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia))))
+          i--;
+        break;
+      case 9:
+        if (!sendPackage("NivelTanqueD", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada))))
+          i--;
+        break;
+      case 10:
+        if (!sendPackage("NivelPh+", i, intTOstring(nivelTOporcentaje(medicionNivelPHmas, maximoNivelPHmas, pisoTanquePHmas))))
+          i--;
+        break;
+      case 11:
+        if (!sendPackage("NivelPh-", i, intTOstring(nivelTOporcentaje(medicionNivelPHmenos, maximoNivelPHmenos, pisoTanquePHmenos))))
+          i--;
+        break;
+      case 12:
+        if (!sendPackage("NivelNutA", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA))))
+          i--;
+        break;
+      case 13:
+        if (!sendPackage("NivelNutB", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB))))
+          i--;
+        break;
+      case 14:
+        if (!sendPackage("A", i, auxArray))
+          i--;
+        break;
+      case 15:
+        if (!sendPackage("E", i, auxArray2))
+          i--;
+        break;
+    }
+  }
+}
+//---------------------------------------------------------------------------------------------------------------//
+bool sendPackage(String nombre, int cmd, String valor)
+{
+  delay(10);
+  char command[3];
+  completarLargo(intTOstring(cmd), 2, 1).toCharArray(command, 3);
+  char payLoad[25];
+  char package[32];
+  char aux[22];
+
+  parameterToJson(nombre, valor).toCharArray(aux, 22);
+
+  snprintf(payLoad, sizeof(payLoad), "%s%c%s", command , (char)DELIMITER_CHARACTER, aux);
+  strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+  Serial.println(package);
+
+  return send(package);
+}
+//---------------------------------------------------------------------------------------------------------------//
+String parameterToJson(String nombre, String valor)
+{
+  return "{\"" + nombre + "\":\"" + valor + "\"}";
+}
+//---------------------------------------------------------------------------------------------------------------//
 bool generarAlerta(String mensaje)
 {
-  //Serial.println(mensaje);
+  Serial.println(mensaje);
+}
+//---------------------------------------------------------------------------------------------------------------//
+bool send(const char * message) {
+  delay(10);
+  Serial.print("Envio: ");
+  Serial.println(message);
+  esp.writeData(message);
+  delay(10);
+  Serial.print("Recibo: ");
+  receivedPackage = esp.readData();
+  Serial.println(receivedPackage);
+  Serial.println();
+  return checkPackageComplete();
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para la generacion de alertas >
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES para el reloj RTC
 //---------------------------------------------------------------------------------------------------------------//
-
 void digitalClockDisplay()
 {
   // digital clock display of the time

@@ -1,7 +1,7 @@
 {
-	"idDispositivo": "HDRMP",
-	"Notificaciones": "000",
-	"CantidadHorasLuz": "00",
-	"HoraInicioLuz": "00",
-	"PH_aceptable": "00"
+	"idDispositivo": "12625275",
+	"Notificaciones": "015",
+	"CantidadHorasLuz": "02",
+	"HoraInicioLuz": "21",
+	"PH_aceptable": "07"
 }

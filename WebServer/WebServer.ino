@@ -10,10 +10,12 @@
 
 #include "FS.h"
 
+#include "SPISlave.h"
+
 #define DEBUG
 //********************************** PROTOCOLO DE COMUNICACION *****************************
 #ifdef  DEBUG
-#define DELIMITER_CHARACTER '$'
+#define DELIMITER_CHARACTER '|'
 #define START_CHARACTER '#'
 #define END_CHARACTER '*'
 #define SERIAL_PRINT(x,y)        Serial.print(x);Serial.println(y);
@@ -33,7 +35,7 @@
 #define OPEN                     65
 
 #define PACKAGE_FORMAT   "%c%c%s%c%s%c%c" //start character + delimiter character + payLoad + delimiter character + checksum + delimiter character + end character.
-#define SIZE_PAYLOAD     513//40
+#define SIZE_PAYLOAD     25
 #define SIZE_PACKAGE     SIZE_PAYLOAD + 7
 #define SIZE_CHECKSUM    3
 #define SIZE_MSG_QUEUE   10
@@ -75,12 +77,8 @@ void setup() {
 
   int contconexion = 0;
   // Inicia Serial
-  Serial.begin(4800);
-  //Serial.swap();
-  //  pinMode(13, INPUT);
-  //  pinMode(15, OUTPUT);
-  Serial.println("");
-
+  Serial.begin(9600);
+  //Serial.setDebugOutput(true);
 
   Serial.print("chipId: ");
   chipid = String(ESP.getChipId());
@@ -129,6 +127,57 @@ void setup() {
     delay(200);
     enviarPaquete();
   }
+
+  //***************************************************************************
+
+  SPISlave.onData([](uint8_t * data, size_t len) {
+    String message = String((char *)data);
+    (void) len;
+    Serial.println(message);
+    //    if (message.equals("Hello Slave!")) {
+    //      SPISlave.setData("Hello Master!");
+    //    } else if (message.equals("Are you alive?")) {
+    //      char answer[33];
+    //      sprintf(answer, "Alive for %lu seconds!", millis() / 1000);
+    //      SPISlave.setData(answer);
+    receivedPackage = message;
+    if (checkPackageComplete()) {
+      char cmd[] = "98";
+      char payLoad[25];
+      char package[32];
+      snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "OK");
+      strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+      SPISlave.setData(package);
+
+    } else {
+      char cmd[] = "99";
+      char payLoad[25];
+      char package[32];
+
+      snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "ER");
+      strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+      SPISlave.setData(package);
+    }
+    Serial.printf("Question: %s\n", (char *)data);
+  });
+
+  SPISlave.onDataSent([]() {
+    Serial.println("Answer Sent");
+  });
+
+  SPISlave.onStatus([](uint32_t data) {
+    Serial.printf("Status: %u\n", data);
+    SPISlave.setStatus(millis()); //set next status
+  });
+
+  SPISlave.onStatusSent([]() {
+    Serial.println("Status Sent");
+  });
+
+  SPISlave.begin();
+  SPISlave.setStatus(millis());
+
+  //SPISlave.setData("Ask me a question!");
 }
 
 //--------------------------LOOP--------------------------------
@@ -137,10 +186,9 @@ void loop() {
   if (CONFIGURAR_ALARMAS)
   {
     setTime(0, 0, 0, 1, 1, 2000);
-    loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
+    loggit = Alarm.timerRepeat(10, enviardatos);
     //Alarm.disable();
     CONFIGURAR_ALARMAS = false;
-
   }
 
   //digitalClockDisplay();
@@ -180,7 +228,7 @@ void loop() {
 
 String parameterToJson(String nombre, String valor)
 {
-  return "{\"" + nombre + "\": \"" + valor + "\"}";
+  return "{\"" + nombre + "\":\"" + valor + "\"}";
 }
 //---------------------------------------------------------------------------------------------------------------//
 String floatTOstring(float x)//Convertir de float a String
@@ -197,15 +245,16 @@ bool enviarPaquete()
 {
   delay(100);
   char cmd[] = "01";
-  char payLoad[30];
-  char package[50];
-  char aux[300];
+  char payLoad[25];
+  char package[32];
+  char aux[22];
 
-  parameterToJson("CantidadHorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 30);
+  parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 30);
 
   snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
   strcpy(package, preparePackage(payLoad, strlen(payLoad)));
   Serial.print(package);
+  //SPISlave.setData(package);
 
   delay(100);
 
@@ -219,6 +268,7 @@ bool enviarPaquete()
   snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
   strcpy(package, preparePackage(payLoad, strlen(payLoad)));
   Serial.print(package);
+  //SPISlave.setData(package);
 
   delay(100);
 
@@ -227,11 +277,12 @@ bool enviarPaquete()
   strcpy(package, "");
   strcpy(aux, "");
 
-  parameterToJson("PH_aceptable", intTOstring(PH_aceptable)).toCharArray(aux, 30);
+  parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 30);
 
   snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
   strcpy(package, preparePackage(payLoad, strlen(payLoad)));
   Serial.print(package);
+  //SPISlave.setData(package);
 
   return true;
 }
@@ -315,35 +366,51 @@ void enviarMensaje() {
 //-------
 
 void enviardatos()
-{ String datos;
-  int distancia = 0;
-  //crear Json
+{
+  String linea;
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    HTTPClient http;
+    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"idDispositivo\":\"2263874F-4820-4E31-9E37-58E77DD25494\",\"Notificaciones\":\"015\",\"CantidadHorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"PH_aceptable\":\"07\"}");
 
-  StaticJsonBuffer<200> jsonBuffer1;
-  JsonObject& json1 = jsonBuffer1.createObject();
-  json1["Distancia"] = distancia;
-  //  Serial.println();
-  //  json.prettyPrintTo(Serial);
-  String dato;
-  json1.printTo(dato);
-  datos = "dato=" + dato;
-
-  String linea = "error";
-  //WiFiClientSecure client; //esto es para https
-  WiFiClient client;
-  strhost.toCharArray(host, 100);
-  // Serial.println(host);
-  if (!client.connect(host, 80)) {
-    Serial.println("Fallo de conexion");
-    //return linea;
+    int httpCode = http.GET();
+    if (httpCode > 0) {
+      linea  = http.getString();
+      //SERIAL_PRINT("linea=", linea);
+    }
+    http.end();   //Close connection
   }
+  /*
+    String datos;
+    int distancia = 0;
+    //crear Json
 
-  client.print(String("PUT ") + strurl + " HTTP/1.1" + "\r\n" +
-               "Host: " + strhost + "\r\n" +
-               "Accept: */*" + "*\r\n" +
-               "Content-Length: " + datos.length() + "\r\n" +
-               "Content-Type: application/x-www-form-urlencoded" + "\r\n" +
-               "\r\n" + datos);
+    StaticJsonBuffer<200> jsonBuffer1;
+    JsonObject& json1 = jsonBuffer1.createObject();
+    json1["Distancia"] = distancia;
+    //  Serial.println();
+    //  json.prettyPrintTo(Serial);
+    String dato;
+    json1.printTo(dato);
+    //datos = "dato=" + dato;
+    datos = "dato={\"idDispositivo\":\"2263874F-4820-4E31-9E37-58E77DD25494\",\"Notificaciones\":\"015\",\"CantidadHorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"PH_aceptable\":\"07\"}";
+
+    String linea = "error";
+    //WiFiClientSecure client; //esto es para https
+    WiFiClient client;
+    strhost.toCharArray(host, 100);
+    // Serial.println(host);
+    if (!client.connect(host, 80)) {
+      Serial.println("Fallo de conexion");
+      //return linea;
+    }
+
+    client.print(String("PUT ") + strurl + " HTTP/1.1" + "\r\n" +
+                 "Host: " + strhost + "\r\n" +
+                 "Accept: *//*" + "*\r\n" +
+  "Content-Length: " + datos.length() + "\r\n" +
+  "Content-Type: application/x-www-form-urlencoded" + "\r\n" +
+  "\r\n" + datos);
   delay(10);
 
   //Serial.print("Enviando datos a SQL...");
@@ -351,20 +418,23 @@ void enviardatos()
   unsigned long timeout = millis();
   while (client.available() == 0)
   {
-    if (millis() - timeout > 5000)
-    {
-      Serial.println("Cliente fuera de tiempo!");
-      client.stop();
-      //return linea;
-    }
+  if (millis() - timeout > 5000)
+  {
+  Serial.println("Cliente fuera de tiempo!");
+  client.stop();
+  //return linea;
+  }
   }
   // Lee todas las lineas que recibe del servidor y las imprime por la terminal serial
   while (client.available())
   {
-    linea = client.readStringUntil('\r');
+  linea = client.readStringUntil('\r');
   }
 
+  SERIAL_PRINT("linea=", linea);
+*/
 
+  linea = "{\"idDispositivo\":\"2263874F-4820-4E31-9E37-58E77DD25494\",\"Notificaciones\":\"015\",\"CantidadHorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"PH_aceptable\":\"07\"}";
 
   StaticJsonBuffer<500> jsonBuffer;
   char json[300];
@@ -437,47 +507,47 @@ void printDigits(int digits)
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266
 //---------------------------------------------------------------------------------------------------------------//
-void serialEvent() //Funcion que captura los eventos del puerto serial.
-{
-  static int state = 0;
-  if (Serial.available()) {
-
-    while (Serial.available()) {
-      char inChar = (char)Serial.read();
-
-      Serial.print(inChar);
-
-    }
-    Serial.println("pong");
-    /*
-      char inChar = (char)Serial.read();
-
-      if (inChar == START_CHARACTER && state == 0)
-      {
-      state = 1;
-      receivedPackage = inChar;
-      }
-
-      else if (inChar == START_CHARACTER && state == 1)
-      {
-      state = 1;
-      receivedPackage = inChar;
-      }
-
-      else if (inChar != END_CHARACTER && state == 1)
-      {
-      receivedPackage += inChar;
-      }
-
-      else if (inChar == END_CHARACTER && state == 1)
-      {
-      receivedPackage += inChar;
-      state = 0;
-      packageComplete = true;
-      Serial.print(receivedPackage);
-      }*/
-  }
-}
+//void serialEvent() //Funcion que captura los eventos del puerto serial.
+//{
+//  static int state = 0;
+//  if (Serial.available()) {
+//
+//    while (Serial.available()) {
+//      char inChar = (char)Serial.read();
+//
+//      Serial.print(inChar);
+//
+//    }
+//    Serial.println("pong");
+//    /*
+//      char inChar = (char)Serial.read();
+//
+//      if (inChar == START_CHARACTER && state == 0)
+//      {
+//      state = 1;
+//      receivedPackage = inChar;
+//      }
+//
+//      else if (inChar == START_CHARACTER && state == 1)
+//      {
+//      state = 1;
+//      receivedPackage = inChar;
+//      }
+//
+//      else if (inChar != END_CHARACTER && state == 1)
+//      {
+//      receivedPackage += inChar;
+//      }
+//
+//      else if (inChar == END_CHARACTER && state == 1)
+//      {
+//      receivedPackage += inChar;
+//      state = 0;
+//      packageComplete = true;
+//      Serial.print(receivedPackage);
+//      }*/
+//  }
+//}
 
 //---------------------------------------------------------------------------------------------------------------//
 char* calcChecksum(const char *data, int length)
@@ -597,10 +667,10 @@ int disarmPayLoad(const char *payLoad, int length, char *data) //***************
   command[2] = '\0';
 
   int cmd = atoi(command);
-  if (cmd > 0 && cmd < 9)
+  if (cmd > 0 && cmd < 100)
   {
     //if (cmd == 6) {  // unico comando proveniente desde la raspberry con datos;
-    memcpy (data, payLoad + 2, (length - 2)*sizeof(char));
+    memcpy (data, payLoad + 3, (length - 2)*sizeof(char));
     data[length - 2] = '\0';
     // }
     return cmd;
@@ -638,57 +708,57 @@ int proccesPackage(String package, int length)
   }
 }
 //---------------------------------------------------------------------------------------------------------------//
-bool  checkPackageComplete(void)
+bool checkPackageComplete(void)
 {
-  if (packageComplete)
+  //  if (packageComplete)
+  //  {
+  packageComplete = false;
+  int retCmd = proccesPackage(receivedPackage, receivedPackage.length());
+
+  if (retCmd == ERROR_CODE)
   {
-    packageComplete = false;
-    int retCmd = proccesPackage(receivedPackage, receivedPackage.length());
-
-    if (retCmd == ERROR_CODE)
-    {
-      SERIAL_PRINT("> Error unknown command !!", "");
-    }
-    else if (retCmd == ERROR_BAD_CHECKSUM)
-    {
-      SERIAL_PRINT("> Error bad checksum!!", "");
-    }
-    else
-    {
-      /*      switch (retCmd) {
-              case OPEN_DOOR:
-                SERIAL_PRINT("> Command Open Door", "");
-                openDoor = true;
-                break;
-
-              case CLOSE_DOOR:
-                SERIAL_PRINT("> Command Close Door", "");
-                closeDoor = true;
-                break;
-
-              case CARD_VALID:
-                SERIAL_PRINT("> Command Card Valid", "");
-                openDoor = true;
-                break;
-
-              case CARD_NOT_VALID:
-                SERIAL_PRINT("> Command Card not Valid", "");
-                push_Msg_inQueue(MSG_INVALID_CARD);
-                refreshDisplay = true;
-                break;
-
-              case ACK_BUTTON_PRESSED:
-                SERIAL_PRINT("> Command ACK button pressed", "");
-                break;
-
-              case ACK_OPEN_DOOR:
-                SERIAL_PRINT(F("> Command ACK Open Door"), "");
-                break;
-            }*/
-    }
-    return true;
+    SERIAL_PRINT("> Error unknown command !!", "");
   }
-  return false;
+  else if (retCmd == ERROR_BAD_CHECKSUM)
+  {
+    SERIAL_PRINT("> Error bad checksum!!", "");
+  }
+  else
+  {
+    /*      switch (retCmd) {
+            case OPEN_DOOR:
+              SERIAL_PRINT("> Command Open Door", "");
+              openDoor = true;
+              break;
+
+            case CLOSE_DOOR:
+              SERIAL_PRINT("> Command Close Door", "");
+              closeDoor = true;
+              break;
+
+            case CARD_VALID:
+              SERIAL_PRINT("> Command Card Valid", "");
+              openDoor = true;
+              break;
+
+            case CARD_NOT_VALID:
+              SERIAL_PRINT("> Command Card not Valid", "");
+              push_Msg_inQueue(MSG_INVALID_CARD);
+              refreshDisplay = true;
+              break;
+
+            case ACK_BUTTON_PRESSED:
+              SERIAL_PRINT("> Command ACK button pressed", "");
+              break;
+
+            case ACK_OPEN_DOOR:
+              SERIAL_PRINT(F("> Command ACK Open Door"), "");
+              break;
+          }*/
+  }
+  return true;
+  //  }
+  //  return false;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >
