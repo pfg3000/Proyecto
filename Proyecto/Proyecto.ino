@@ -237,7 +237,7 @@ int horaInicioLuz = 0;
 
 //Variables Medición de PH
 float medicionPH = 0.0; //Valor medido
-float PhParametro = 0.0;
+float PhParametro = 7.0;
 float PHmaxParametro = 0.0;
 float PHminParametro = 0.0;
 float medicionNivelPHmas = 0.0; //Valor medido
@@ -367,8 +367,8 @@ void loop()
   //    CONFIGURAR_ALARMAS = TRUE;
   //  }
 
-  hsLuzParametro = 2; //horas
-  horaInicioLuz = 21; //hora
+  //hsLuzParametro = 2; //horas
+  //horaInicioLuz = 21; //hora
 
   humedadMaxParametro = 60.0; //%
   humedadMinParametro = 40.0; //%
@@ -379,7 +379,7 @@ void loop()
 
   temperaturaAguaMaxParametro = 21.0; //ºc
   temperaturaAguaMinParametro = 18.0; //ºc
-  PhParametro = 6.5;
+  //PhParametro = 6.5;
   PHmaxParametro = PhParametro * 1.05;
   PHminParametro = PhParametro * 0.95;
   ceMaxParametro = 0.333;
@@ -730,6 +730,9 @@ void loop()
     enviarPaquete = true;
   }
 
+  SERIAL_PRINT("hsLuzParametro: ",hsLuzParametro);
+  SERIAL_PRINT("horaInicioLuz: ",horaInicioLuz);
+  SERIAL_PRINT("PhParametro: ",PhParametro);
   //  Serial.println("");
   //  Serial.println("");
 
@@ -1513,7 +1516,7 @@ int disarmPayLoad(const char *payLoad, int length, char *data) //***************
   return ERROR_CODE; //retCode error;
 }
 //---------------------------------------------------------------------------------------------------------------//
-int proccesPackage(String package, int length)
+int proccesPackage(String package, int length, char *data)
 {
   SERIAL_PRINT("\n> Recieved Package: ", package);
   char  recievedPack[SIZE_PACKAGE];
@@ -1524,7 +1527,7 @@ int proccesPackage(String package, int length)
     SERIAL_PRINT("> Checksum valid!!", "");
     strcpy(payLoad, disarmPackage(recievedPack, strlen(recievedPack)));
     SERIAL_PRINT("> PayLoad Disarmed: ", payLoad);
-    char data[50];
+
     int command = disarmPayLoad(payLoad, strlen(payLoad), data);
     if (command != -1)
     {
@@ -1545,10 +1548,8 @@ int proccesPackage(String package, int length)
 //---------------------------------------------------------------------------------------------------------------//
 bool  checkPackageComplete()
 {
-  //  if (packageComplete)
-  //  {
-  //    packageComplete = false;
-  int retCmd = proccesPackage(receivedPackage, receivedPackage.length());
+  char data[50];
+  int retCmd = proccesPackage(receivedPackage, receivedPackage.length(), data);
 
   if (retCmd == ERROR_CODE)
   {
@@ -1562,15 +1563,21 @@ bool  checkPackageComplete()
   }
   else
   {
+    StaticJsonBuffer<100> jsonBuffer;
+    JsonObject& root = jsonBuffer.parseObject(data);
+
     switch (retCmd) {
       case 1:
         SERIAL_PRINT("HorasLuz", "");
+        hsLuzParametro = root["HorasLuz"];
         break;
       case 2:
-        SERIAL_PRINT("HoraInicioLuz", "");
+        SERIAL_PRINT("HoraIniLuz", "");
+        horaInicioLuz = root["HoraIniLuz"];
         break;
       case 3:
         SERIAL_PRINT("pHaceptable", "");
+        PhParametro = root["pHaceptable"];
         break;
       case 98:
         SERIAL_PRINT("OK", "");
@@ -1582,8 +1589,6 @@ bool  checkPackageComplete()
     }
   }
   return true;
-  //  }
-  //  return false;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >
@@ -1694,7 +1699,7 @@ bool generarJson()
   json["Errores"] = auxArray2;
 
   //  Serial.println();
-    json.prettyPrintTo(Serial);
+  json.prettyPrintTo(Serial);
   //  String dato;
   //  json.printTo(dato);
   //
@@ -1713,7 +1718,7 @@ bool enviarInformacion()
   String auxArray = generarArrayAlertas();
   String auxArray2 = generarArrayErrores();
 
-  for (int i = 1; i <= 15; i++)
+  for (int i = 1; i <= 18; i++)
   {
     switch (i)
     {
@@ -1775,6 +1780,18 @@ bool enviarInformacion()
         break;
       case 15:
         if (!sendPackage("E", i, auxArray2))
+          i--;
+        break;
+      case 16:
+        if (!sendPackage("HsL", i, "16"))
+          i--;
+        break;
+      case 17:
+        if (!sendPackage("HiL", i, "17"))
+          i--;
+        break;
+      case 18:
+        if (!sendPackage("phA", i, "18"))
           i--;
         break;
     }
