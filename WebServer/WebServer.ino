@@ -40,7 +40,7 @@
 #define SIZE_MSG_QUEUE   10
 
 String receivedPackage = "";
-bool   packageComplete = false;
+bool packageComplete = false;
 
 int COMANDO = 0;
 
@@ -69,6 +69,24 @@ int Notificaciones;
 int CantidadHorasLuz;
 int HoraInicioLuz;
 float PH_aceptable;
+
+float medicionHumedad;
+float medicionCO2;
+float medicionTemperaturaAire;
+float medicionTemperaturaAgua;
+float medicionPH;
+float medicionCE;
+float medicionNivelTanquePrincial;
+float medicionNivelTanqueAguaLimpia;
+float medicionNivelTanqueDesechable;
+float medicionNivelPHmas;
+float medicionNivelPHmenos;
+float medicionNivelNutrienteA;
+float medicionNivelNutrienteB;
+String Alertas;
+String Errores;
+
+String jsonForUpload;
 
 AlarmId loggit;
 
@@ -147,27 +165,27 @@ void setup() {
       String auxPackage;
       auxPackage.reserve(100);
       switch (COMANDO) {
-        case 0:
-          strcpy(cmd, "98");
-          snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "{\"OK\":\"98\"}");
-          strcpy(package, preparePackage(payLoad, strlen(payLoad)));
-          break;
         case 1:
-          strcpy(cmd, "01");
-          parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 23);
+          strcpy(cmd, "16");
+          parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 22);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
         case 2:
-          strcpy(cmd, "02");
-          parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 23);
+          strcpy(cmd, "17");
+          parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 22);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
         case 3:
-          strcpy(cmd, "03");
-          parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 23);
+          strcpy(cmd, "18");
+          parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 22);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+          strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+          break;
+        default:
+          intTOstring(COMANDO).toCharArray(cmd, 2);
+          snprintf(payLoad, sizeof(payLoad), "%s%c{\"OK\":\"%d\"}", cmd, (char)DELIMITER_CHARACTER, COMANDO);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
       }
@@ -214,6 +232,7 @@ void loop() {
   {
     setTime(0, 0, 0, 1, 1, 2000);
     loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
+	Alarm.timerRepeat(60,upDatos);
     //Alarm.disable();
     CONFIGURAR_ALARMAS = false;
   }
@@ -250,6 +269,9 @@ void loop() {
       //enviarPaquete();
     }
   }
+  
+  jsonForUpload=generarJson();
+  
   Alarm.delay(1000);
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -266,6 +288,26 @@ String floatTOstring(float x)//Convertir de float a String
 String intTOstring(int x)//Convertir de int a String
 {
   return String(x);
+}
+//---------------------------------------------------------------------------------------------------------------//
+void upDatos()
+{
+  String linea;
+  if (WiFi.status() == WL_CONNECTED)
+  {
+	char url[1000];
+	sprintf(url,"http://clientes.webbuilders.com.ar/testSmartZ.php?dato=%s",jsonForUpload)
+	
+    HTTPClient http;
+    http.begin(url);
+
+    int httpCode = http.GET();
+    if (httpCode > 0) {
+      linea  = http.getString();
+      SERIAL_PRINT("linea=", linea);
+    }
+    http.end();   //Close connection
+  }
 }
 //---------------------------------------------------------------------------------------------------------------//
 void enviardatos()
@@ -586,21 +628,7 @@ bool checkPackageComplete(void)
     StaticJsonBuffer<100> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(data);
     COMANDO = 0;
-    float medicionHumedad;
-    float medicionCO2;
-    float medicionTemperaturaAire;
-    float medicionTemperaturaAgua;
-    float medicionPH;
-    float medicionCE;
-    float medicionNivelTanquePrincial;
-    float medicionNivelTanqueAguaLimpia;
-    float medicionNivelTanqueDesechable;
-    float medicionNivelPHmas;
-    float medicionNivelPHmenos;
-    float medicionNivelNutrienteA;
-    float medicionNivelNutrienteB;
-    String Alertas;
-    String Errores;
+
     switch (retCmd) {
       case 1:
         SERIAL_PRINT("HumAire", "");
@@ -677,6 +705,46 @@ bool checkPackageComplete(void)
     }
   }
   return true;
+}
+//---------------------------------------------------------------------------------------------------------------//
+String generarJson()
+{
+
+  //crear Json
+  StaticJsonBuffer<290> jsonBuffer;
+  JsonObject& json = jsonBuffer.createObject();
+  json["HumedadAire"] = medicionHumedad;
+  json["NivelCO2"] = medicionCO2;
+  json["TemperaturaAire"] = medicionTemperaturaAire;
+  json["TemperaturaAguaTanquePrincipal"] = medicionTemperaturaAgua;
+  json["MedicionPH"] = medicionPH;
+  json["MedicionCE"] = medicionCE;
+  json["NivelTanquePrincipal"] = medicionNivelTanquePrincial;
+  json["NivelTanqueLimpia"] = medicionNivelTanqueAguaLimpia;
+  json["NivelTanqueDescarte"] = medicionNivelTanqueDesechable;
+  json["NivelPhMas"] = medicionNivelPHmas;
+  json["NivelPhMenos"] = medicionNivelPHmenos;
+  json["NivelNutrienteA"] = medicionNivelNutrienteA;
+  json["NivelNutrienteB"] =  medicionNivelNutrienteB;
+  json["Alertas"] = Alertas;
+  json["Errores"] = Errores;
+
+  //  Serial.println();
+  json.prettyPrintTo(Serial);
+  //  String dato;
+  //  json.printTo(dato);
+  //
+  //  char package1[513];
+  //  char package[520];
+  //  dato.toCharArray(package1, 513);
+  //
+  //  strcpy(package, preparePackage(package1, strlen(package1)));
+  //  SERIAL_PRINT("package: ", package);
+  //
+  //  Serial1.println(package);
+  String aux;
+  json.printTo(aux);
+  return aux;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >

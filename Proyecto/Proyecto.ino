@@ -1546,19 +1546,19 @@ int proccesPackage(String package, int length, char *data)
   }
 }
 //---------------------------------------------------------------------------------------------------------------//
-bool  checkPackageComplete()
+bool  checkPackageComplete(const char * com)
 {
   char data[50];
   int retCmd = proccesPackage(receivedPackage, receivedPackage.length(), data);
 
   if (retCmd == ERROR_CODE)
   {
-    SERIAL_PRINT("> Error unknown command !!", "");
+    SERIAL_PRINT("> Error, comando desconocido !!", "");
     return false;
   }
   else if (retCmd == ERROR_BAD_CHECKSUM)
   {
-    SERIAL_PRINT("> Error bad checksum!!", "");
+    SERIAL_PRINT("> Error de checksum !!", "");
     return false;
   }
   else
@@ -1567,24 +1567,33 @@ bool  checkPackageComplete()
     JsonObject& root = jsonBuffer.parseObject(data);
 
     switch (retCmd) {
-      case 1:
+      case 16:
         SERIAL_PRINT("HorasLuz", "");
         hsLuzParametro = root["HorasLuz"];
         break;
-      case 2:
+      case 17:
         SERIAL_PRINT("HoraIniLuz", "");
         horaInicioLuz = root["HoraIniLuz"];
         break;
-      case 3:
+      case 18:
         SERIAL_PRINT("pHaceptable", "");
         PhParametro = root["pHaceptable"];
-        break;
-      case 98:
-        SERIAL_PRINT("OK", "");
         break;
       case 99:
         SERIAL_PRINT("ER", "");
         return false;
+        break;
+	  default:
+		if(strcmp(com,root["OK"]))
+		{
+			SERIAL_PRINT("ER", "Paquete no esperado");
+			return false;
+		}
+		else
+		{
+			SERIAL_PRINT("OK", "");
+		}
+          
         break;
     }
   }
@@ -1826,7 +1835,7 @@ bool generarAlerta(String mensaje)
   Serial.println(mensaje);
 }
 //---------------------------------------------------------------------------------------------------------------//
-bool send(const char * message) {
+bool send(const char * message, const char * com) {
   delay(10);
   Serial.print("Envio: ");
   Serial.println(message);
@@ -1836,7 +1845,7 @@ bool send(const char * message) {
   receivedPackage = esp.readData();
   Serial.println(receivedPackage);
   Serial.println();
-  return checkPackageComplete();
+  return checkPackageComplete(com);
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para la generacion de alertas >
