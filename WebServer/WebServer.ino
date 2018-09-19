@@ -295,8 +295,9 @@ void upDatos()
   String linea;
   if (WiFi.status() == WL_CONNECTED)
   {
-	char url[1000];
-	sprintf(url,"http://clientes.webbuilders.com.ar/testSmartZ.php?dato=%s",jsonForUpload)
+	jsonForUpload="http://clientes.webbuilders.com.ar/testSmartZ.php?dato="+jsonForUpload;
+	char url[1200];
+	jsonForUpload.toCharArray(url, jsonForUpload.length());
 	
     HTTPClient http;
     http.begin(url);

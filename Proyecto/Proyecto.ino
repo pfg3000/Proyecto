@@ -1822,7 +1822,7 @@ bool sendPackage(String nombre, int cmd, String valor)
   strcpy(package, preparePackage(payLoad, strlen(payLoad)));
   Serial.println(package);
 
-  return send(package);
+  return send(package,command);
 }
 //---------------------------------------------------------------------------------------------------------------//
 String parameterToJson(String nombre, String valor)
