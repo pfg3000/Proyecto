@@ -83,8 +83,8 @@ float medicionNivelPHmas;
 float medicionNivelPHmenos;
 float medicionNivelNutrienteA;
 float medicionNivelNutrienteB;
-String Alertas;
-String Errores;
+char *Alertas;
+char *Errores;
 
 String jsonForUpload;
 
@@ -97,7 +97,7 @@ void setup() {
   int contconexion = 0;
   // Inicia Serial
   Serial.begin(9600);
-  //Serial.setDebugOutput(true);
+  Serial.setDebugOutput(true);
 
   Serial.print("chipId: ");
   idDispositivo = String(ESP.getChipId());
@@ -153,8 +153,8 @@ void setup() {
   SPISlave.onData([](uint8_t * data, size_t len) {
     String message = String((char *)data);
     (void) len;
-    Serial.println(message);
-
+    //Serial.println(message);
+    Serial.printf("Recibo: %s\n", (char *)data);
     receivedPackage = message;
     if (checkPackageComplete()) {
       char cmd[] = "00";
@@ -162,30 +162,28 @@ void setup() {
       char package[32];
       char aux[22];
 
-      String auxPackage;
-      auxPackage.reserve(100);
       switch (COMANDO) {
-        case 1:
+        case 16:
           strcpy(cmd, "16");
-          parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 22);
+          parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 23);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
-        case 2:
+        case 17:
           strcpy(cmd, "17");
-          parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 22);
+          parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 23);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
-        case 3:
+        case 18:
           strcpy(cmd, "18");
-          parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 22);
+          parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 23);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
         default:
-          intTOstring(COMANDO).toCharArray(cmd, 2);
-          snprintf(payLoad, sizeof(payLoad), "%s%c{\"OK\":\"%d\"}", cmd, (char)DELIMITER_CHARACTER, COMANDO);
+          completarLargo(intTOstring(COMANDO), 2, 1).toCharArray(cmd, 3);
+          snprintf(payLoad, sizeof(payLoad), "%s%c{\"OK\":\"%s\"}", cmd, (char)DELIMITER_CHARACTER, cmd);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
       }
@@ -203,24 +201,24 @@ void setup() {
       strcpy(package, preparePackage(payLoad, strlen(payLoad)));
       SPISlave.setData(package);
     }
-    Serial.printf("Question: %s\n", (char *)data);
+    
   });
 
   SPISlave.onDataSent([]() {
-    Serial.println("Answer Sent");
+    Serial.println("fue enviado");
   });
 
   SPISlave.onStatus([](uint32_t data) {
-    Serial.printf("Status: %u\n", data);
-    SPISlave.setStatus(millis()); //set next status
+//    Serial.printf("Status: %u\n", data);
+//    SPISlave.setStatus(millis()); //set next status
   });
 
   SPISlave.onStatusSent([]() {
-    Serial.println("Status Sent");
+//    Serial.println("Status Sent");
   });
 
   SPISlave.begin();
-  SPISlave.setStatus(millis());
+//  SPISlave.setStatus(millis());
 
   //SPISlave.setData("Ask me a question!");
 }
@@ -232,8 +230,8 @@ void loop() {
   {
     setTime(0, 0, 0, 1, 1, 2000);
     loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
-	Alarm.timerRepeat(60,upDatos);
-    //Alarm.disable();
+    //Alarm.timerRepeat(60, upDatos);
+    ////Alarm.disable();
     CONFIGURAR_ALARMAS = false;
   }
 
@@ -269,9 +267,9 @@ void loop() {
       //enviarPaquete();
     }
   }
+
   
-  jsonForUpload=generarJson();
-  
+
   Alarm.delay(1000);
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -295,10 +293,11 @@ void upDatos()
   String linea;
   if (WiFi.status() == WL_CONNECTED)
   {
-	jsonForUpload="http://clientes.webbuilders.com.ar/testSmartZ.php?dato="+jsonForUpload;
-	char url[1200];
-	jsonForUpload.toCharArray(url, jsonForUpload.length());
-	
+    jsonForUpload = generarJson();
+    jsonForUpload = "http://clientes.webbuilders.com.ar/testSmartZ.php?dato=" + jsonForUpload;
+    char url[1200];
+    jsonForUpload.toCharArray(url, jsonForUpload.length());
+
     HTTPClient http;
     http.begin(url);
 
@@ -317,7 +316,7 @@ void enviardatos()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}");
+    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0008\"}");
 
     int httpCode = http.GET();
     if (httpCode > 0) {
@@ -626,82 +625,82 @@ bool checkPackageComplete(void)
   }
   else
   {
-    StaticJsonBuffer<100> jsonBuffer;
-    JsonObject& root = jsonBuffer.parseObject(data);
-    COMANDO = 0;
+    //    StaticJsonBuffer<100> jsonBuffer;
+    //    JsonObject& root = jsonBuffer.parseObject(data);
+    COMANDO = retCmd;
 
     switch (retCmd) {
       case 1:
         SERIAL_PRINT("HumAire", "");
-        medicionHumedad = root["HumAire"];
+        //medicionHumedad = root["HumAire"];
         break;
       case 2:
         SERIAL_PRINT("CO2", "");
-        medicionCO2 = root["CO2"];
+        //medicionCO2 = root["CO2"];
         break;
       case 3:
         SERIAL_PRINT("TempAire", "");
-        medicionTemperaturaAire = root["TempAire"];
+        //medicionTemperaturaAire = root["TempAire"];
         break;
       case 4:
         SERIAL_PRINT("TempAgua", "");
-        medicionTemperaturaAgua = root["TempAgua"];
+        //medicionTemperaturaAgua = root["TempAgua"];
         break;
       case 5:
         SERIAL_PRINT("PH", "");
-        medicionPH = root["PH"];
+        //medicionPH = root["PH"];
         break;
       case 6:
         SERIAL_PRINT("CE", "");
-        medicionCE = root["CE"];
+        //medicionCE = root["CE"];
         break;
       case 7:
         SERIAL_PRINT("NivelTanqueP", "");
-        medicionNivelTanquePrincial = root["NivelTanqueP"];
+        //medicionNivelTanquePrincial = root["NivelTanqueP"];
         break;
       case 8:
         SERIAL_PRINT("NivelTanqueL", "");
-        medicionNivelTanqueAguaLimpia = root["NivelTanqueL"];
+        //medicionNivelTanqueAguaLimpia = root["NivelTanqueL"];
         break;
       case 9:
         SERIAL_PRINT("NivelTanqueD", "");
-        medicionNivelTanqueDesechable = root["NivelTanqueD"];
+        //medicionNivelTanqueDesechable = root["NivelTanqueD"];
         break;
       case 10:
         SERIAL_PRINT("NivelPh+", "");
-        medicionNivelPHmas = root["NivelPh+"];
+        //medicionNivelPHmas = root["NivelPh+"];
         break;
       case 11:
         SERIAL_PRINT("NivelPh-", "");
-        medicionNivelPHmenos = root["NivelPh-"];
+        //medicionNivelPHmenos = root["NivelPh-"];
         break;
       case 12:
         SERIAL_PRINT("NivelNutA", "");
-        medicionNivelNutrienteA = root["NivelNutA"];
+        //medicionNivelNutrienteA = root["NivelNutA"];
         break;
       case 13:
         SERIAL_PRINT("NivelNutA", "");
-        medicionNivelNutrienteB = root["NivelNutA"];
+        //medicionNivelNutrienteB = root["NivelNutA"];
         break;
       case 14:
         SERIAL_PRINT("A", "");
-        root["A"].printTo(Alertas);
+        //Alertas=root["A"];
         break;
       case 15:
         SERIAL_PRINT("E", "");
-        root["E"].printTo(Errores);
+        //Errores=root["E"];
         break;
       case 16:
         SERIAL_PRINT("HsL", "");
-        COMANDO = 1;
+        //COMANDO = 1;
         break;
       case 17:
         SERIAL_PRINT("HiL", "");
-        COMANDO = 2;
+        //COMANDO = 2;
         break;
       case 18:
         SERIAL_PRINT("phA", "");
-        COMANDO = 3;
+        //COMANDO = 3;
         break;
     }
   }
@@ -727,8 +726,8 @@ String generarJson()
   json["NivelPhMenos"] = medicionNivelPHmenos;
   json["NivelNutrienteA"] = medicionNivelNutrienteA;
   json["NivelNutrienteB"] =  medicionNivelNutrienteB;
-  json["Alertas"] = Alertas;
-  json["Errores"] = Errores;
+  //  strcpy(json["Alertas"],Alertas);
+  //  strcpy(json["Errores"],Errores);
 
   //  Serial.println();
   json.prettyPrintTo(Serial);
@@ -746,6 +745,22 @@ String generarJson()
   String aux;
   json.printTo(aux);
   return aux;
+}
+//---------------------------------------------------------------------------------------------------------------//
+String completarLargo(String x, int largo, int lado) // lado: 1 Derecha 2 Izquierda. ** Completar el largo con 000000
+{
+  //  SERIAL_PRINT("x: ", x);
+  //  SERIAL_PRINT("length: ", x.length());
+
+  if (x.length() < largo) {
+    for (int i = 0 ; i <= largo - x.length(); i++)
+      if (lado == 1)
+        x = "0" + x;
+      else
+        x = x + "0";
+  }
+  //  SERIAL_PRINT("x2: ", x);
+  return x;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >

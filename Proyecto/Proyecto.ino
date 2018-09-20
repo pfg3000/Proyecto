@@ -119,7 +119,7 @@ bool packageComplete = false;
 bool enviarPaquete = true;
 unsigned long timeout;
 
-#define SEND_PACKAGE_TIME 15000
+#define SEND_PACKAGE_TIME 30000
 
 //************************** Banderas de comandos y errores, variables varias *********************
 bool CMD_BAJAR_TEMPERATURA_AGUA = false;
@@ -730,9 +730,9 @@ void loop()
     enviarPaquete = true;
   }
 
-  SERIAL_PRINT("hsLuzParametro: ",hsLuzParametro);
-  SERIAL_PRINT("horaInicioLuz: ",horaInicioLuz);
-  SERIAL_PRINT("PhParametro: ",PhParametro);
+  SERIAL_PRINT("hsLuzParametro: ", hsLuzParametro);
+  SERIAL_PRINT("horaInicioLuz: ", horaInicioLuz);
+  SERIAL_PRINT("PhParametro: ", PhParametro);
   //  Serial.println("");
   //  Serial.println("");
 
@@ -1565,6 +1565,19 @@ bool  checkPackageComplete(const char * com)
   {
     StaticJsonBuffer<100> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(data);
+    if (0 < retCmd && 16 > retCmd)
+    {
+      if (strcmp(com, root["OK"]) != 0)
+      {
+        SERIAL_PRINT("ER", "Paquete no esperado");
+        return false;
+      }
+    }
+    else
+    {
+      if (atoi(com) != retCmd)
+        return false;
+    }
 
     switch (retCmd) {
       case 16:
@@ -1583,17 +1596,8 @@ bool  checkPackageComplete(const char * com)
         SERIAL_PRINT("ER", "");
         return false;
         break;
-	  default:
-		if(strcmp(com,root["OK"]))
-		{
-			SERIAL_PRINT("ER", "Paquete no esperado");
-			return false;
-		}
-		else
-		{
-			SERIAL_PRINT("OK", "");
-		}
-          
+      default:
+        SERIAL_PRINT("OK", "");
         break;
     }
   }
@@ -1809,7 +1813,7 @@ bool enviarInformacion()
 //---------------------------------------------------------------------------------------------------------------//
 bool sendPackage(String nombre, int cmd, String valor)
 {
-  delay(10);
+  delay(20);
   char command[3];
   completarLargo(intTOstring(cmd), 2, 1).toCharArray(command, 3);
   char payLoad[25];
@@ -1822,7 +1826,7 @@ bool sendPackage(String nombre, int cmd, String valor)
   strcpy(package, preparePackage(payLoad, strlen(payLoad)));
   Serial.println(package);
 
-  return send(package,command);
+  return send(package, command);
 }
 //---------------------------------------------------------------------------------------------------------------//
 String parameterToJson(String nombre, String valor)
@@ -1836,7 +1840,7 @@ bool generarAlerta(String mensaje)
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool send(const char * message, const char * com) {
-  delay(10);
+  delay(50);
   Serial.print("Envio: ");
   Serial.println(message);
   esp.writeData(message);
