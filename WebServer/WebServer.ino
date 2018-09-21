@@ -156,11 +156,17 @@ void setup() {
     //Serial.println(message);
     Serial.printf("Recibo: %s\n", (char *)data);
     receivedPackage = message;
+    
+    char cmd[] = "00";
+    char payLoad[25];
+    char package[32];
+    char aux[23];
+
     if (checkPackageComplete()) {
-      char cmd[] = "00";
-      char payLoad[25];
-      char package[32];
-      char aux[22];
+      strcpy(payLoad, "00");
+      strcpy(payLoad, "");
+      strcpy(package, "");
+      strcpy(aux, "");
 
       switch (COMANDO) {
         case 16:
@@ -187,21 +193,19 @@ void setup() {
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
       }
-      Serial.print(package);
-      SPISlave.setData(package);
-
     }
     else
     {
-      char cmd[] = "99";
-      char payLoad[25];
-      char package[32];
+      strcpy(payLoad, "99");
+      strcpy(payLoad, "");
+      strcpy(package, "");
+      strcpy(aux, "");
 
       snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "{\"ER\":\"99\"}");
       strcpy(package, preparePackage(payLoad, strlen(payLoad)));
-      SPISlave.setData(package);
     }
-    
+    Serial.print(package);
+    SPISlave.setData(package);
   });
 
   SPISlave.onDataSent([]() {
@@ -209,18 +213,18 @@ void setup() {
   });
 
   SPISlave.onStatus([](uint32_t data) {
-//    Serial.printf("Status: %u\n", data);
-//    SPISlave.setStatus(millis()); //set next status
+    Serial.printf("Status: %u\n", data);
+    SPISlave.setStatus(millis()); //set next status
   });
 
   SPISlave.onStatusSent([]() {
-//    Serial.println("Status Sent");
+    Serial.println("Status Sent");
   });
 
   SPISlave.begin();
-//  SPISlave.setStatus(millis());
+  SPISlave.setStatus(millis());
 
-  //SPISlave.setData("Ask me a question!");
+  //SPISlave.setData("Come on Mega!");
 }
 
 //--------------------------LOOP--------------------------------
@@ -268,7 +272,7 @@ void loop() {
     }
   }
 
-  
+
 
   Alarm.delay(1000);
 }
@@ -316,12 +320,16 @@ void enviardatos()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0008\"}");
+    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}");
 
     int httpCode = http.GET();
     if (httpCode > 0) {
       linea  = http.getString();
       SERIAL_PRINT("linea=", linea);
+    }
+    else
+    {
+      SERIAL_PRINT("error http ", httpCode);
     }
     http.end();   //Close connection
   }
@@ -380,26 +388,30 @@ void enviardatos()
 */
 
   //linea = "{\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}";
+  if (linea != "") {
+    StaticJsonBuffer<500> jsonBuffer;
+    char json[300];
+    linea.toCharArray(json, 300);
+    JsonObject& root = jsonBuffer.parseObject(json);
+    //idDispositivo = root["id"];
+    Notificaciones = root["Notificacion"];
+    CantidadHorasLuz = root["HorasLuz"];
+    HoraInicioLuz = root["HoraInicioLuz"];
+    PH_aceptable = root["pHaceptable"];
 
-  StaticJsonBuffer<500> jsonBuffer;
-  char json[300];
-  linea.toCharArray(json, 300);
-  JsonObject& root = jsonBuffer.parseObject(json);
-  //idDispositivo = root["id"];
-  Notificaciones = root["Notificacion"];
-  CantidadHorasLuz = root["HorasLuz"];
-  HoraInicioLuz = root["HoraInicioLuz"];
-  PH_aceptable = root["pHaceptable"];
+    //  SERIAL_PRINT("id=", id);
+    //  SERIAL_PRINT("N=", Notificacion);
+    //  SERIAL_PRINT("CHL=", HorasLuz);
+    //  SERIAL_PRINT("HL=", HoraInicioLuz);
+    //  SERIAL_PRINT("PH=", pHaceptable);
 
-  //  SERIAL_PRINT("id=", id);
-  //  SERIAL_PRINT("N=", Notificacion);
-  //  SERIAL_PRINT("CHL=", HorasLuz);
-  //  SERIAL_PRINT("HL=", HoraInicioLuz);
-  //  SERIAL_PRINT("PH=", pHaceptable);
-
-  downloadConfig = "";
-  root.printTo(downloadConfig);
-
+    downloadConfig = "";
+    root.printTo(downloadConfig);
+  }
+  else
+  {
+    downloadConfig = "";
+  }
 
   /*  char package1[144];
     char package[151];
@@ -610,7 +622,7 @@ int proccesPackage(String package, int length, char *data)
 bool checkPackageComplete(void)
 {
   char data[50];
-  packageComplete = false;
+  COMANDO = 0;
   int retCmd = proccesPackage(receivedPackage, receivedPackage.length(), data);
 
   if (retCmd == ERROR_CODE)
@@ -628,7 +640,7 @@ bool checkPackageComplete(void)
     //    StaticJsonBuffer<100> jsonBuffer;
     //    JsonObject& root = jsonBuffer.parseObject(data);
     COMANDO = retCmd;
-
+    SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii ", COMANDO);
     switch (retCmd) {
       case 1:
         SERIAL_PRINT("HumAire", "");
