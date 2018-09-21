@@ -1741,7 +1741,7 @@ bool enviarInformacion()
 
   for (int i = 1; i <= 18; i++)
   {
-    SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii: ", i);
+    SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii: ", i);
     switch (i)
     {
       case 1:
@@ -1750,71 +1750,71 @@ bool enviarInformacion()
         break;
       case 2:
         if (!sendPackage("CO2", i, completarLargo(floatTOstring(medicionCO2), 8, 1)))
-          //i--;
+          i--;
           break;
       case 3:
         if (!sendPackage("TempAire", i, completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1)))
-          //i--;
+          i--;
           break;
       case 4:
         if (!sendPackage("TempAgua", i, completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1)))
-          //i--;
+          i--;
           break;
       case 5:
         if (!sendPackage("PH", i, completarLargo(floatTOstring(medicionPH), 6, 1)))
-          //i--;
+          i--;
           break;
       case 6:
         if (!sendPackage("CE", i, completarLargo(floatTOstring(medicionCE), 6, 1)))
-          //i--;
+          i--;
           break;
       case 7:
         if (!sendPackage("NivelTanqueP", i, intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal))))
-          //i--;
+          i--;
           break;
       case 8:
         if (!sendPackage("NivelTanqueL", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia))))
-          // i--;
+          i--;
           break;
       case 9:
         if (!sendPackage("NivelTanqueD", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada))))
-          //i--;
+          i--;
           break;
       case 10:
         if (!sendPackage("NivelPh+", i, intTOstring(nivelTOporcentaje(medicionNivelPHmas, maximoNivelPHmas, pisoTanquePHmas))))
-          // i--;
+          i--;
           break;
       case 11:
         if (!sendPackage("NivelPh-", i, intTOstring(nivelTOporcentaje(medicionNivelPHmenos, maximoNivelPHmenos, pisoTanquePHmenos))))
-          // i--;
+          i--;
           break;
       case 12:
         if (!sendPackage("NivelNutA", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA))))
-          //i--;
+          i--;
           break;
       case 13:
         if (!sendPackage("NivelNutB", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB))))
-          //i--;
+          i--;
           break;
       case 14:
         if (!sendPackage("A", i, auxArray))
-          //i--;
+          i--;
           break;
       case 15:
         if (!sendPackage("E", i, auxArray2))
-          //i--;
+          i--;
           break;
       case 16:
         if (!sendPackage("HsL", i, "16"))
-          //i--;
+          i--;
           break;
       case 17:
         if (!sendPackage("HiL", i, "17"))
-          //i--;
+          i--;
           break;
       case 18:
         if (!sendPackage("phA", i, "18"))
-          //i--;
+          i--;
           break;
     }
   }
@@ -1850,7 +1850,8 @@ bool generarAlerta(String mensaje)
 //---------------------------------------------------------------------------------------------------------------//
 bool send(const char * message, const char * com) {
   delay(30);
-  SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV16, MSBFIRST, SPI_MODE3));
+  receivedPackage="";
+  //SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV16, MSBFIRST, SPI_MODE3));
   Serial.print("Envio: ");
   Serial.println(message);
   esp.writeData(message);
@@ -1861,7 +1862,7 @@ bool send(const char * message, const char * com) {
   //  receivedPackage = esp.readData();
   //  Serial.println(receivedPackage);
   Serial.println();
-  SPI.endTransaction ();
+  //SPI.endTransaction ();
   return checkPackageComplete(com);
 }
 //---------------------------------------------------------------------------------------------------------------//

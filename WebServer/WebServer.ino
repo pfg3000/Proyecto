@@ -643,76 +643,93 @@ bool checkPackageComplete(void)
     SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii ", COMANDO);
     switch (retCmd) {
       case 1:
+	  medicionHumedad = root["HumAire"];
         SERIAL_PRINT("HumAire", "");
-        //medicionHumedad = root["HumAire"];
         break;
       case 2:
+	  medicionCO2 = root["CO2"];
         SERIAL_PRINT("CO2", "");
-        //medicionCO2 = root["CO2"];
+        
         break;
       case 3:
+	  medicionTemperaturaAire = root["TempAire"];
         SERIAL_PRINT("TempAire", "");
-        //medicionTemperaturaAire = root["TempAire"];
+        
         break;
       case 4:
+	  medicionTemperaturaAgua = root["TempAgua"];
         SERIAL_PRINT("TempAgua", "");
-        //medicionTemperaturaAgua = root["TempAgua"];
+        
         break;
       case 5:
+	  medicionPH = root["PH"];
         SERIAL_PRINT("PH", "");
-        //medicionPH = root["PH"];
+        
         break;
       case 6:
+	  medicionCE = root["CE"];
         SERIAL_PRINT("CE", "");
-        //medicionCE = root["CE"];
+        
         break;
       case 7:
+	  medicionNivelTanquePrincial = root["NivelTanqueP"];
         SERIAL_PRINT("NivelTanqueP", "");
-        //medicionNivelTanquePrincial = root["NivelTanqueP"];
+        
         break;
       case 8:
+	  medicionNivelTanqueAguaLimpia = root["NivelTanqueL"];
         SERIAL_PRINT("NivelTanqueL", "");
-        //medicionNivelTanqueAguaLimpia = root["NivelTanqueL"];
+        
         break;
       case 9:
+	  medicionNivelTanqueDesechable = root["NivelTanqueD"];
         SERIAL_PRINT("NivelTanqueD", "");
-        //medicionNivelTanqueDesechable = root["NivelTanqueD"];
+        
         break;
       case 10:
+	  medicionNivelPHmas = root["NivelPh+"];
         SERIAL_PRINT("NivelPh+", "");
-        //medicionNivelPHmas = root["NivelPh+"];
+        
         break;
       case 11:
+	  medicionNivelPHmenos = root["NivelPh-"];
         SERIAL_PRINT("NivelPh-", "");
-        //medicionNivelPHmenos = root["NivelPh-"];
+        
         break;
       case 12:
+	  medicionNivelNutrienteA = root["NivelNutA"];
         SERIAL_PRINT("NivelNutA", "");
-        //medicionNivelNutrienteA = root["NivelNutA"];
+        
         break;
       case 13:
+	  medicionNivelNutrienteB = root["NivelNutA"];
         SERIAL_PRINT("NivelNutA", "");
-        //medicionNivelNutrienteB = root["NivelNutA"];
+        
         break;
       case 14:
+	   Alertas=root["A"];
         SERIAL_PRINT("A", "");
-        //Alertas=root["A"];
+       
         break;
       case 15:
+	  Errores=root["E"];
         SERIAL_PRINT("E", "");
-        //Errores=root["E"];
+        
         break;
       case 16:
+	  //COMANDO = 1;
         SERIAL_PRINT("HsL", "");
-        //COMANDO = 1;
+        
         break;
       case 17:
+	  //COMANDO = 2;
         SERIAL_PRINT("HiL", "");
-        //COMANDO = 2;
+        
         break;
       case 18:
+	  //COMANDO = 3;
         SERIAL_PRINT("phA", "");
-        //COMANDO = 3;
+        
         break;
     }
   }
