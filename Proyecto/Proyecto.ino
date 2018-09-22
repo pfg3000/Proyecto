@@ -1751,71 +1751,71 @@ bool enviarInformacion()
       case 2:
         if (!sendPackage("CO2", i, completarLargo(floatTOstring(medicionCO2), 8, 1)))
           i--;
-          break;
+        break;
       case 3:
         if (!sendPackage("TempAire", i, completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1)))
           i--;
-          break;
+        break;
       case 4:
         if (!sendPackage("TempAgua", i, completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1)))
           i--;
-          break;
+        break;
       case 5:
         if (!sendPackage("PH", i, completarLargo(floatTOstring(medicionPH), 6, 1)))
           i--;
-          break;
+        break;
       case 6:
         if (!sendPackage("CE", i, completarLargo(floatTOstring(medicionCE), 6, 1)))
           i--;
-          break;
+        break;
       case 7:
         if (!sendPackage("NivelTanqueP", i, intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal))))
           i--;
-          break;
+        break;
       case 8:
         if (!sendPackage("NivelTanqueL", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia))))
           i--;
-          break;
+        break;
       case 9:
         if (!sendPackage("NivelTanqueD", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada))))
           i--;
-          break;
+        break;
       case 10:
         if (!sendPackage("NivelPh+", i, intTOstring(nivelTOporcentaje(medicionNivelPHmas, maximoNivelPHmas, pisoTanquePHmas))))
           i--;
-          break;
+        break;
       case 11:
         if (!sendPackage("NivelPh-", i, intTOstring(nivelTOporcentaje(medicionNivelPHmenos, maximoNivelPHmenos, pisoTanquePHmenos))))
           i--;
-          break;
+        break;
       case 12:
         if (!sendPackage("NivelNutA", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA))))
           i--;
-          break;
+        break;
       case 13:
         if (!sendPackage("NivelNutB", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB))))
           i--;
-          break;
+        break;
       case 14:
         if (!sendPackage("A", i, auxArray))
           i--;
-          break;
+        break;
       case 15:
         if (!sendPackage("E", i, auxArray2))
           i--;
-          break;
+        break;
       case 16:
         if (!sendPackage("HsL", i, "16"))
           i--;
-          break;
+        break;
       case 17:
         if (!sendPackage("HiL", i, "17"))
           i--;
-          break;
+        break;
       case 18:
         if (!sendPackage("phA", i, "18"))
           i--;
-          break;
+        break;
     }
   }
 }
@@ -1850,20 +1850,19 @@ bool generarAlerta(String mensaje)
 //---------------------------------------------------------------------------------------------------------------//
 bool send(const char * message, const char * com) {
   delay(30);
-  receivedPackage="";
-  //SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV16, MSBFIRST, SPI_MODE3));
-  Serial.print("Envio: ");
-  Serial.println(message);
+  receivedPackage = "";
+  
+  SERIAL_PRINT("Envio: ", message);
   esp.writeData(message);
   delay(100);
-  Serial.print("Recibo: ");
   receivedPackage = esp.readData();
-  Serial.println(receivedPackage);
-  //  receivedPackage = esp.readData();
-  //  Serial.println(receivedPackage);
+  SERIAL_PRINT("Recibo: ", receivedPackage);
   Serial.println();
-  //SPI.endTransaction ();
+  
   return checkPackageComplete(com);
+  
+  //SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV16, MSBFIRST, SPI_MODE3));
+  //SPI.endTransaction ();
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para la generacion de alertas >

@@ -83,8 +83,8 @@ float medicionNivelPHmas;
 float medicionNivelPHmenos;
 float medicionNivelNutrienteA;
 float medicionNivelNutrienteB;
-char *Alertas;
-char *Errores;
+const char *Alertas;
+const char *Errores;
 
 String jsonForUpload;
 
@@ -156,11 +156,11 @@ void setup() {
     //Serial.println(message);
     Serial.printf("Recibo: %s\n", (char *)data);
     receivedPackage = message;
-    
+
     char cmd[] = "00";
     char payLoad[25];
     char package[32];
-    char aux[23];
+    char aux[22];
 
     if (checkPackageComplete()) {
       strcpy(payLoad, "00");
@@ -171,19 +171,19 @@ void setup() {
       switch (COMANDO) {
         case 16:
           strcpy(cmd, "16");
-          parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 23);
+          parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 22);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
         case 17:
           strcpy(cmd, "17");
-          parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 23);
+          parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 22);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
         case 18:
           strcpy(cmd, "18");
-          parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 23);
+          parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 22);
           snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
           strcpy(package, preparePackage(payLoad, strlen(payLoad)));
           break;
@@ -234,7 +234,7 @@ void loop() {
   {
     setTime(0, 0, 0, 1, 1, 2000);
     loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
-    //Alarm.timerRepeat(60, upDatos);
+    Alarm.timerRepeat(60, upDatos);
     ////Alarm.disable();
     CONFIGURAR_ALARMAS = false;
   }
@@ -299,9 +299,10 @@ void upDatos()
   {
     jsonForUpload = generarJson();
     jsonForUpload = "http://clientes.webbuilders.com.ar/testSmartZ.php?dato=" + jsonForUpload;
-    char url[1200];
-    jsonForUpload.toCharArray(url, jsonForUpload.length());
-
+    char url[2000];
+    jsonForUpload.toCharArray(url, jsonForUpload.length() + 1);
+    SERIAL_PRINT("jsonForUpload: ", jsonForUpload);
+    SERIAL_PRINT("URL: ", url);
     HTTPClient http;
     http.begin(url);
 
@@ -309,6 +310,10 @@ void upDatos()
     if (httpCode > 0) {
       linea  = http.getString();
       SERIAL_PRINT("linea=", linea);
+    }
+    else
+    {
+      SERIAL_PRINT("error http ", httpCode);
     }
     http.end();   //Close connection
   }
@@ -637,99 +642,102 @@ bool checkPackageComplete(void)
   }
   else
   {
-    //    StaticJsonBuffer<100> jsonBuffer;
-    //    JsonObject& root = jsonBuffer.parseObject(data);
+    StaticJsonBuffer<200> jsonBuffer;
+    //    char auxiliar[200];
+    //    strcpy(auxiliar, data);
+    JsonObject& root = jsonBuffer.parseObject(data);
+
     COMANDO = retCmd;
     SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii ", COMANDO);
     switch (retCmd) {
       case 1:
-	  medicionHumedad = root["HumAire"];
-        SERIAL_PRINT("HumAire", "");
+        medicionHumedad = root["HumAire"];
+        SERIAL_PRINT("HumAire ", medicionHumedad);
         break;
       case 2:
-	  medicionCO2 = root["CO2"];
-        SERIAL_PRINT("CO2", "");
-        
+        medicionCO2 = root["CO2"];
+        SERIAL_PRINT("CO2 ", medicionCO2);
+
         break;
       case 3:
-	  medicionTemperaturaAire = root["TempAire"];
-        SERIAL_PRINT("TempAire", "");
-        
+        medicionTemperaturaAire = root["TempAire"];
+        SERIAL_PRINT("TempAire ", medicionTemperaturaAire);
+
         break;
       case 4:
-	  medicionTemperaturaAgua = root["TempAgua"];
-        SERIAL_PRINT("TempAgua", "");
-        
+        medicionTemperaturaAgua = root["TempAgua"];
+        SERIAL_PRINT("TempAgua ", medicionTemperaturaAgua);
+
         break;
       case 5:
-	  medicionPH = root["PH"];
-        SERIAL_PRINT("PH", "");
-        
+        medicionPH = root["PH"];
+        SERIAL_PRINT("PH ", medicionPH);
+
         break;
       case 6:
-	  medicionCE = root["CE"];
-        SERIAL_PRINT("CE", "");
-        
+        medicionCE = root["CE"];
+        SERIAL_PRINT("CE ", medicionCE);
+
         break;
       case 7:
-	  medicionNivelTanquePrincial = root["NivelTanqueP"];
-        SERIAL_PRINT("NivelTanqueP", "");
-        
+        medicionNivelTanquePrincial = root["NivelTanqueP"];
+        SERIAL_PRINT("NivelTanqueP ", medicionNivelTanquePrincial);
+
         break;
       case 8:
-	  medicionNivelTanqueAguaLimpia = root["NivelTanqueL"];
-        SERIAL_PRINT("NivelTanqueL", "");
-        
+        medicionNivelTanqueAguaLimpia = root["NivelTanqueL"];
+        SERIAL_PRINT("NivelTanqueL ", medicionNivelTanqueAguaLimpia);
+
         break;
       case 9:
-	  medicionNivelTanqueDesechable = root["NivelTanqueD"];
-        SERIAL_PRINT("NivelTanqueD", "");
-        
+        medicionNivelTanqueDesechable = root["NivelTanqueD"];
+        SERIAL_PRINT("NivelTanqueD ", medicionNivelTanqueDesechable);
+
         break;
       case 10:
-	  medicionNivelPHmas = root["NivelPh+"];
-        SERIAL_PRINT("NivelPh+", "");
-        
+        medicionNivelPHmas = root["NivelPh+"];
+        SERIAL_PRINT("NivelPh+ ", medicionNivelPHmas);
+
         break;
       case 11:
-	  medicionNivelPHmenos = root["NivelPh-"];
-        SERIAL_PRINT("NivelPh-", "");
-        
+        medicionNivelPHmenos = root["NivelPh-"];
+        SERIAL_PRINT("NivelPh- ", medicionNivelPHmenos);
+
         break;
       case 12:
-	  medicionNivelNutrienteA = root["NivelNutA"];
-        SERIAL_PRINT("NivelNutA", "");
-        
+        medicionNivelNutrienteA = root["NivelNutA"];
+        SERIAL_PRINT("NivelNutA ", medicionNivelNutrienteA);
+
         break;
       case 13:
-	  medicionNivelNutrienteB = root["NivelNutA"];
-        SERIAL_PRINT("NivelNutA", "");
-        
+        medicionNivelNutrienteB = root["NivelNutA"];
+        SERIAL_PRINT("NivelNutA ", medicionNivelNutrienteB);
+
         break;
       case 14:
-	   Alertas=root["A"];
-        SERIAL_PRINT("A", "");
-       
+        Alertas = root["A"];
+        SERIAL_PRINT("A ", Alertas);
+
         break;
       case 15:
-	  Errores=root["E"];
-        SERIAL_PRINT("E", "");
-        
+        Errores = root["E"];
+        SERIAL_PRINT("E ", Errores);
+
         break;
       case 16:
-	  //COMANDO = 1;
+        //COMANDO = 1;
         SERIAL_PRINT("HsL", "");
-        
+
         break;
       case 17:
-	  //COMANDO = 2;
+        //COMANDO = 2;
         SERIAL_PRINT("HiL", "");
-        
+
         break;
       case 18:
-	  //COMANDO = 3;
+        //COMANDO = 3;
         SERIAL_PRINT("phA", "");
-        
+
         break;
     }
   }
@@ -742,6 +750,8 @@ String generarJson()
   //crear Json
   StaticJsonBuffer<290> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
+
+  json["chipID"] = idDispositivo;
   json["HumedadAire"] = medicionHumedad;
   json["NivelCO2"] = medicionCO2;
   json["TemperaturaAire"] = medicionTemperaturaAire;
@@ -754,9 +764,21 @@ String generarJson()
   json["NivelPhMas"] = medicionNivelPHmas;
   json["NivelPhMenos"] = medicionNivelPHmenos;
   json["NivelNutrienteA"] = medicionNivelNutrienteA;
-  json["NivelNutrienteB"] =  medicionNivelNutrienteB;
-  //  strcpy(json["Alertas"],Alertas);
-  //  strcpy(json["Errores"],Errores);
+  json["NivelNutrienteB"] = medicionNivelNutrienteB;
+
+  String a = "", e = "";
+
+  a.reserve(15);
+  e.reserve(15);
+
+  //  for (int j = 0; j < strlen(Alertas); j++)
+  //    a += Alertas[j];
+
+  json["Alertas"] = a;
+
+  //  for (int k = 0; k < strlen(Errores); k++)
+  //    e += Errores[k];
+  json["Errores"] = e;
 
   //  Serial.println();
   json.prettyPrintTo(Serial);
