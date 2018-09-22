@@ -1822,7 +1822,7 @@ bool enviarInformacion()
 //---------------------------------------------------------------------------------------------------------------//
 bool sendPackage(String nombre, int cmd, String valor)
 {
-  delay(30);
+  delay(10);
   char command[3];
   completarLargo(intTOstring(cmd), 2, 1).toCharArray(command, 3);
   char payLoad[25];
@@ -1849,12 +1849,12 @@ bool generarAlerta(String mensaje)
 }
 //---------------------------------------------------------------------------------------------------------------//
 bool send(const char * message, const char * com) {
-  delay(30);
+  delay(10);
   receivedPackage = "";
   
   SERIAL_PRINT("Envio: ", message);
   esp.writeData(message);
-  delay(100);
+  delay(25);
   receivedPackage = esp.readData();
   SERIAL_PRINT("Recibo: ", receivedPackage);
   Serial.println();

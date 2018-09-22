@@ -48,8 +48,8 @@ int COMANDO = 0;
 
 bool CONFIGURAR_ALARMAS = true;
 
-const char *ssid = "PolkoNet";
-const char *password = "polkotite8308!";
+const char *ssid = "Polko";
+const char *password = "polkklop";
 
 unsigned long previousMillis = 0;
 
@@ -83,12 +83,17 @@ float medicionNivelPHmas;
 float medicionNivelPHmenos;
 float medicionNivelNutrienteA;
 float medicionNivelNutrienteB;
-const char *Alertas;
-const char *Errores;
+
+char Alert[50];
+char Error1[50];
 
 String jsonForUpload;
 
 AlarmId loggit;
+
+bool enviarPaquete = true;
+unsigned long timeout;
+#define SEND_PACKAGE_TIME 45000
 
 void setup() {
   //********* Protocolo de comunicación.
@@ -161,7 +166,6 @@ void setup() {
     char payLoad[25];
     char package[32];
     char aux[22];
-
     if (checkPackageComplete()) {
       strcpy(payLoad, "00");
       strcpy(payLoad, "");
@@ -234,7 +238,7 @@ void loop() {
   {
     setTime(0, 0, 0, 1, 1, 2000);
     loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
-    Alarm.timerRepeat(60, upDatos);
+    //Alarm.timerRepeat(63, upDatos);
     ////Alarm.disable();
     CONFIGURAR_ALARMAS = false;
   }
@@ -272,7 +276,15 @@ void loop() {
     }
   }
 
-
+  if (enviarPaquete) {
+    timeout = millis();
+    enviarPaquete = false;
+  }
+  if ((millis() - timeout > SEND_PACKAGE_TIME)) {
+    Serial.println("GENERANDO JSON");
+    upDatos();
+    enviarPaquete = true;
+  }
 
   Alarm.delay(1000);
 }
@@ -299,10 +311,10 @@ void upDatos()
   {
     jsonForUpload = generarJson();
     jsonForUpload = "http://clientes.webbuilders.com.ar/testSmartZ.php?dato=" + jsonForUpload;
-    char url[2000];
-    jsonForUpload.toCharArray(url, jsonForUpload.length() + 1);
-    SERIAL_PRINT("jsonForUpload: ", jsonForUpload);
-    SERIAL_PRINT("URL: ", url);
+    char url[1000];
+    jsonForUpload.toCharArray(url, jsonForUpload.length()+1);
+//    SERIAL_PRINT("jsonForUpload: ", jsonForUpload);
+//    SERIAL_PRINT("URL: ", url);
     HTTPClient http;
     http.begin(url);
 
@@ -647,6 +659,9 @@ bool checkPackageComplete(void)
     //    strcpy(auxiliar, data);
     JsonObject& root = jsonBuffer.parseObject(data);
 
+    const char *Alertas;
+    const char *Errores;
+
     COMANDO = retCmd;
     SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii ", COMANDO);
     switch (retCmd) {
@@ -716,11 +731,13 @@ bool checkPackageComplete(void)
         break;
       case 14:
         Alertas = root["A"];
+        sprintf(Alert, "%s", Alertas);
         SERIAL_PRINT("A ", Alertas);
 
         break;
       case 15:
         Errores = root["E"];
+        sprintf(Error1, "%s", Errores);
         SERIAL_PRINT("E ", Errores);
 
         break;
@@ -746,56 +763,78 @@ bool checkPackageComplete(void)
 //---------------------------------------------------------------------------------------------------------------//
 String generarJson()
 {
+  String a(Alert);
+  String e(Error1);
+  
+  String resultado;
+  resultado.reserve(1000);
+  resultado += "{";
+  resultado += parameterToJsonHalf("chipID",idDispositivo);
+  resultado += parameterToJsonHalf("HumedadAire",floatTOstring(medicionHumedad));
+  resultado += parameterToJsonHalf("NivelCO2",floatTOstring(medicionCO2));
+  resultado += parameterToJsonHalf("TemperaturaAire",floatTOstring(medicionTemperaturaAire));
+  resultado += parameterToJsonHalf("TemperaturaAguaTanquePrincipal",floatTOstring(medicionTemperaturaAgua));
+  resultado += parameterToJsonHalf("MedicionPH",floatTOstring(medicionPH));
+  resultado += parameterToJsonHalf("MedicionCE",floatTOstring(medicionCE));
+  resultado += parameterToJsonHalf("NivelTanquePrincipal",intTOstring(medicionNivelTanquePrincial));
+  resultado += parameterToJsonHalf("NivelTanqueLimpia",intTOstring(medicionNivelTanqueAguaLimpia));
+  resultado += parameterToJsonHalf("NivelTanqueDescarte",intTOstring(medicionNivelTanqueDesechable));
+  resultado += parameterToJsonHalf("NivelPhMas",intTOstring(medicionNivelPHmas));
+  resultado += parameterToJsonHalf("NivelPhMenos",intTOstring(medicionNivelPHmenos));
+  resultado += parameterToJsonHalf("NivelNutrienteA",intTOstring(medicionNivelNutrienteA));
+  resultado += parameterToJsonHalf("NivelNutrienteB",intTOstring(medicionNivelNutrienteB));
+  resultado += parameterToJsonHalf("Alertas",a);
+  resultado += parameterToJsonHalf("Errores",e);
+  resultado += "}";
+  /*
+    //crear Json
+    StaticJsonBuffer<1000> jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
 
-  //crear Json
-  StaticJsonBuffer<290> jsonBuffer;
-  JsonObject& json = jsonBuffer.createObject();
+    json["chipID"] = idDispositivo;
+    json["HumedadAire"] = medicionHumedad;
+    json["NivelCO2"] = medicionCO2;
+    json["TemperaturaAire"] = medicionTemperaturaAire;
+    json["TemperaturaAguaTanquePrincipal"] = medicionTemperaturaAgua;
+    json["MedicionPH"] = medicionPH;
+    json["MedicionCE"] = medicionCE;
+    json["NivelTanquePrincipal"] = medicionNivelTanquePrincial;
+    json["NivelTanqueLimpia"] = medicionNivelTanqueAguaLimpia;
+    json["NivelTanqueDescarte"] = medicionNivelTanqueDesechable;
+    json["NivelPhMas"] = medicionNivelPHmas;
+    json["NivelPhMenos"] = medicionNivelPHmenos;
+    json["NivelNutrienteA"] = medicionNivelNutrienteA;
+    json["NivelNutrienteB"] = medicionNivelNutrienteB;
 
-  json["chipID"] = idDispositivo;
-  json["HumedadAire"] = medicionHumedad;
-  json["NivelCO2"] = medicionCO2;
-  json["TemperaturaAire"] = medicionTemperaturaAire;
-  json["TemperaturaAguaTanquePrincipal"] = medicionTemperaturaAgua;
-  json["MedicionPH"] = medicionPH;
-  json["MedicionCE"] = medicionCE;
-  json["NivelTanquePrincipal"] = medicionNivelTanquePrincial;
-  json["NivelTanqueLimpia"] = medicionNivelTanqueAguaLimpia;
-  json["NivelTanqueDescarte"] = medicionNivelTanqueDesechable;
-  json["NivelPhMas"] = medicionNivelPHmas;
-  json["NivelPhMenos"] = medicionNivelPHmenos;
-  json["NivelNutrienteA"] = medicionNivelNutrienteA;
-  json["NivelNutrienteB"] = medicionNivelNutrienteB;
+    String a(Alert);
+    json["Alertas"] = a;
 
-  String a = "", e = "";
+    String e(Error1);
+    json["Errores"] = e;
 
-  a.reserve(15);
-  e.reserve(15);
-
-  //  for (int j = 0; j < strlen(Alertas); j++)
-  //    a += Alertas[j];
-
-  json["Alertas"] = a;
-
-  //  for (int k = 0; k < strlen(Errores); k++)
-  //    e += Errores[k];
-  json["Errores"] = e;
-
-  //  Serial.println();
-  json.prettyPrintTo(Serial);
-  //  String dato;
-  //  json.printTo(dato);
-  //
-  //  char package1[513];
-  //  char package[520];
-  //  dato.toCharArray(package1, 513);
-  //
-  //  strcpy(package, preparePackage(package1, strlen(package1)));
-  //  SERIAL_PRINT("package: ", package);
-  //
-  //  Serial1.println(package);
-  String aux;
-  json.printTo(aux);
-  return aux;
+    //  Serial.println();
+    json.prettyPrintTo(Serial);
+    //  String dato;
+    //  json.printTo(dato);
+    //
+    //  char package1[513];
+    //  char package[520];
+    //  dato.toCharArray(package1, 513);
+    //
+    //  strcpy(package, preparePackage(package1, strlen(package1)));
+    //  SERIAL_PRINT("package: ", package);
+    //
+    //  Serial1.println(package);
+    String aux;
+    json.printTo(aux);
+    return aux;
+  */
+  return resultado;
+}
+//---------------------------------------------------------------------------------------------------------------//
+String parameterToJsonHalf(String nombre, String valor)
+{
+  return "\"" + nombre + "\":\"" + valor + "\"";
 }
 //---------------------------------------------------------------------------------------------------------------//
 String completarLargo(String x, int largo, int lado) // lado: 1 Derecha 2 Izquierda. ** Completar el largo con 000000
