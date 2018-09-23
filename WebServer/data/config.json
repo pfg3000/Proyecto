@@ -3,5 +3,7 @@
 	"Notificaciones": "015",
 	"CantidadHorasLuz": "02",
 	"HoraInicioLuz": "21",
-	"PH_aceptable": "07"
+	"PH_aceptable": "07",
+	"SSID": "PolkoNet",
+	"Password": "polkotite8308!"
 }

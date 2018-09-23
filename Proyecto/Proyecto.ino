@@ -419,6 +419,21 @@ void loop()
   //    seteamos el reloj con la hora del reloj RTC
   //    luego seteamos la alarma inicial y la alarma final para encender y apagar las luces.
   //    cambiamos el delay(2000); del loop por Alarm.delay(1000);
+  if (enviarPaquete) {
+    timeout = millis();
+    enviarPaquete = false;
+    enviarInformacion();
+  }
+  if (millis() - timeout > SEND_PACKAGE_TIME) {
+    Serial.println("GENERANDO JSON");
+    enviarInformacion();
+    generarJson();
+    enviarPaquete = true;
+  }
+
+  SERIAL_PRINT("hsLuzParametro: ", hsLuzParametro);
+  SERIAL_PRINT("horaInicioLuz: ", horaInicioLuz);
+  SERIAL_PRINT("PhParametro: ", PhParametro);
 
   if (CONFIGURAR_ALARMAS)
   {
@@ -724,20 +739,7 @@ void loop()
     Serial.println("");
   */
 
-  if (enviarPaquete) {
-    timeout = millis();
-    enviarPaquete = false;
-  }
-  if (millis() - timeout > SEND_PACKAGE_TIME) {
-    Serial.println("GENERANDO JSON");
-    enviarInformacion();
-    generarJson();
-    enviarPaquete = true;
-  }
 
-  SERIAL_PRINT("hsLuzParametro: ", hsLuzParametro);
-  SERIAL_PRINT("horaInicioLuz: ", horaInicioLuz);
-  SERIAL_PRINT("PhParametro: ", PhParametro);
   //  Serial.println("");
   //  Serial.println("");
 
@@ -1580,7 +1582,7 @@ bool  checkPackageComplete(const char * com)
     }
     else
     {
-      if (atoi(com) != retCmd && retCmd != 99)
+      if (atoi(com) != retCmd && (retCmd != 99 && retCmd != 98))
       {
         SERIAL_PRINT("ER", "Paquete no esperado");
         return false;
@@ -1600,8 +1602,12 @@ bool  checkPackageComplete(const char * com)
         PhParametro = root["pHaceptable"];
         SERIAL_PRINT("pHaceptable", PhParametro);
         break;
+      case 98:
+        SERIAL_PRINT("BS", "BUSY");
+        return false;
+        break;
       case 99:
-        SERIAL_PRINT("ER", "");
+        SERIAL_PRINT("ER", "ERROR");
         return false;
         break;
       default:
@@ -1851,16 +1857,16 @@ bool generarAlerta(String mensaje)
 bool send(const char * message, const char * com) {
   delay(10);
   receivedPackage = "";
-  
+
   SERIAL_PRINT("Envio: ", message);
   esp.writeData(message);
   delay(25);
   receivedPackage = esp.readData();
   SERIAL_PRINT("Recibo: ", receivedPackage);
   Serial.println();
-  
+
   return checkPackageComplete(com);
-  
+
   //SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV16, MSBFIRST, SPI_MODE3));
   //SPI.endTransaction ();
 }

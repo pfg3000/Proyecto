@@ -40,7 +40,6 @@
 #define SIZE_MSG_QUEUE   10
 
 String receivedPackage = "";
-bool packageComplete = false;
 
 int COMANDO = 0;
 
@@ -48,8 +47,8 @@ int COMANDO = 0;
 
 bool CONFIGURAR_ALARMAS = true;
 
-const char *ssid = "Polko";
-const char *password = "polkklop";
+const char *ssid = "";//"PolkoNet";
+const char *password = "";//"polkotite8308!";
 
 unsigned long previousMillis = 0;
 
@@ -60,12 +59,10 @@ String strurl = "/testSmartZ.php"; // donde tengo la web
 String configPackage = "";
 String downloadConfig = "";
 
-int NotificacionesReal = 15;
-int CantidadHorasLuzReal = 3;
-int HoraInicioLuzReal = 21;
-float PH_aceptableReal = 7;
+
 String idDispositivo;//identificador unico de la placa ESP
 int Notificaciones;
+int NotificacionesReal = 15;
 int CantidadHorasLuz;
 int HoraInicioLuz;
 float PH_aceptable;
@@ -95,20 +92,37 @@ bool enviarPaquete = true;
 unsigned long timeout;
 #define SEND_PACKAGE_TIME 45000
 
+bool mutex = true;
+
 void setup() {
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
 
-  int contconexion = 0;
   // Inicia Serial
   Serial.begin(9600);
   Serial.setDebugOutput(true);
 
-  Serial.print("chipId: ");
   idDispositivo = String(ESP.getChipId());
+  SERIAL_PRINT("chipId: ", idDispositivo);
 
-  Serial.println(idDispositivo);
+  if (!SPIFFS.begin())
+  {
+    Serial.println("Failed to mount file system");
+    //return;
+  }
+  if (!loadConfig())
+  {
+    Serial.println("Failed to load config");
+  }
+  else
+  {
+    Serial.println("Config loaded");
+    //Serial.println(configPackage);
+    //delay(200);
+    //enviarPaquete();
+  }
 
+  int contconexion = 0;
   // Conexión WIFI
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED and contconexion < 50) { //Cuenta hasta 50 si no se puede conectar lo cancela
@@ -135,24 +149,6 @@ void setup() {
     Serial.println("Error de conexion");
   }
 
-  if (!SPIFFS.begin())
-  {
-    Serial.println("Failed to mount file system");
-    return;
-  }
-
-  if (!loadConfig())
-  {
-    Serial.println("Failed to load config");
-  }
-  else
-  {
-    Serial.println("Config loaded");
-    //Serial.println(configPackage);
-    delay(200);
-    //enviarPaquete();
-  }
-
   //*************************************************************************** SPI
 
   SPISlave.onData([](uint8_t * data, size_t len) {
@@ -166,46 +162,59 @@ void setup() {
     char payLoad[25];
     char package[32];
     char aux[22];
-    if (checkPackageComplete()) {
-      strcpy(payLoad, "00");
-      strcpy(payLoad, "");
-      strcpy(package, "");
-      strcpy(aux, "");
+    if (mutex)
+    {
+      if (checkPackageComplete()) {
+        strcpy(payLoad, "00");
+        strcpy(payLoad, "");
+        strcpy(package, "");
+        strcpy(aux, "");
 
-      switch (COMANDO) {
-        case 16:
-          strcpy(cmd, "16");
-          parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 22);
-          snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
-          strcpy(package, preparePackage(payLoad, strlen(payLoad)));
-          break;
-        case 17:
-          strcpy(cmd, "17");
-          parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 22);
-          snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
-          strcpy(package, preparePackage(payLoad, strlen(payLoad)));
-          break;
-        case 18:
-          strcpy(cmd, "18");
-          parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 22);
-          snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
-          strcpy(package, preparePackage(payLoad, strlen(payLoad)));
-          break;
-        default:
-          completarLargo(intTOstring(COMANDO), 2, 1).toCharArray(cmd, 3);
-          snprintf(payLoad, sizeof(payLoad), "%s%c{\"OK\":\"%s\"}", cmd, (char)DELIMITER_CHARACTER, cmd);
-          strcpy(package, preparePackage(payLoad, strlen(payLoad)));
-          break;
+        switch (COMANDO) {
+          case 16:
+            strcpy(cmd, "16");
+            parameterToJson("HorasLuz", intTOstring(CantidadHorasLuz)).toCharArray(aux, 22);
+            snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+            strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+            break;
+          case 17:
+            strcpy(cmd, "17");
+            parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 22);
+            snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+            strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+            break;
+          case 18:
+            strcpy(cmd, "18");
+            parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 22);
+            snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+            strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+            break;
+          default:
+            completarLargo(intTOstring(COMANDO), 2, 1).toCharArray(cmd, 3);
+            snprintf(payLoad, sizeof(payLoad), "%s%c{\"OK\":\"%s\"}", cmd, (char)DELIMITER_CHARACTER, cmd);
+            strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+            break;
+        }
+      }
+      else
+      {
+        strcpy(cmd, "99");
+        strcpy(payLoad, "");
+        strcpy(package, "");
+        strcpy(aux, "");
+
+        snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "{\"ER\":\"99\"}");
+        strcpy(package, preparePackage(payLoad, strlen(payLoad)));
       }
     }
     else
     {
-      strcpy(payLoad, "99");
+      strcpy(cmd, "98");
       strcpy(payLoad, "");
       strcpy(package, "");
       strcpy(aux, "");
 
-      snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "{\"ER\":\"99\"}");
+      snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, "{\"BS\":\"BUSY\"}");
       strcpy(package, preparePackage(payLoad, strlen(payLoad)));
     }
     Serial.print(package);
@@ -306,15 +315,16 @@ String intTOstring(int x)//Convertir de int a String
 //---------------------------------------------------------------------------------------------------------------//
 void upDatos()
 {
+  mutex = false;
   String linea;
   if (WiFi.status() == WL_CONNECTED)
   {
     jsonForUpload = generarJson();
     jsonForUpload = "http://clientes.webbuilders.com.ar/testSmartZ.php?dato=" + jsonForUpload;
     char url[1000];
-    jsonForUpload.toCharArray(url, jsonForUpload.length()+1);
-//    SERIAL_PRINT("jsonForUpload: ", jsonForUpload);
-//    SERIAL_PRINT("URL: ", url);
+    jsonForUpload.toCharArray(url, jsonForUpload.length() + 1);
+    //    SERIAL_PRINT("jsonForUpload: ", jsonForUpload);
+    //    SERIAL_PRINT("URL: ", url);
     HTTPClient http;
     http.begin(url);
 
@@ -329,6 +339,7 @@ void upDatos()
     }
     http.end();   //Close connection
   }
+  mutex = true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 void enviardatos()
@@ -337,7 +348,7 @@ void enviardatos()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}");
+    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\",\"SSID\":\"PolkoNet\",\"Password\":\"polkotite8308!\"}");
 
     int httpCode = http.GET();
     if (httpCode > 0) {
@@ -415,6 +426,8 @@ void enviardatos()
     CantidadHorasLuz = root["HorasLuz"];
     HoraInicioLuz = root["HoraInicioLuz"];
     PH_aceptable = root["pHaceptable"];
+    ssid = root["SSID"];
+    password = root["Password"];
 
     //  SERIAL_PRINT("id=", id);
     //  SERIAL_PRINT("N=", Notificacion);
@@ -765,26 +778,26 @@ String generarJson()
 {
   String a(Alert);
   String e(Error1);
-  
+
   String resultado;
   resultado.reserve(1000);
   resultado += "{";
-  resultado += parameterToJsonHalf("chipID",idDispositivo);
-  resultado += parameterToJsonHalf("HumedadAire",floatTOstring(medicionHumedad));
-  resultado += parameterToJsonHalf("NivelCO2",floatTOstring(medicionCO2));
-  resultado += parameterToJsonHalf("TemperaturaAire",floatTOstring(medicionTemperaturaAire));
-  resultado += parameterToJsonHalf("TemperaturaAguaTanquePrincipal",floatTOstring(medicionTemperaturaAgua));
-  resultado += parameterToJsonHalf("MedicionPH",floatTOstring(medicionPH));
-  resultado += parameterToJsonHalf("MedicionCE",floatTOstring(medicionCE));
-  resultado += parameterToJsonHalf("NivelTanquePrincipal",intTOstring(medicionNivelTanquePrincial));
-  resultado += parameterToJsonHalf("NivelTanqueLimpia",intTOstring(medicionNivelTanqueAguaLimpia));
-  resultado += parameterToJsonHalf("NivelTanqueDescarte",intTOstring(medicionNivelTanqueDesechable));
-  resultado += parameterToJsonHalf("NivelPhMas",intTOstring(medicionNivelPHmas));
-  resultado += parameterToJsonHalf("NivelPhMenos",intTOstring(medicionNivelPHmenos));
-  resultado += parameterToJsonHalf("NivelNutrienteA",intTOstring(medicionNivelNutrienteA));
-  resultado += parameterToJsonHalf("NivelNutrienteB",intTOstring(medicionNivelNutrienteB));
-  resultado += parameterToJsonHalf("Alertas",a);
-  resultado += parameterToJsonHalf("Errores",e);
+  resultado += parameterToJsonHalf("chipID", idDispositivo);
+  resultado += parameterToJsonHalf("HumedadAire", floatTOstring(medicionHumedad));
+  resultado += parameterToJsonHalf("NivelCO2", floatTOstring(medicionCO2));
+  resultado += parameterToJsonHalf("TemperaturaAire", floatTOstring(medicionTemperaturaAire));
+  resultado += parameterToJsonHalf("TemperaturaAguaTanquePrincipal", floatTOstring(medicionTemperaturaAgua));
+  resultado += parameterToJsonHalf("MedicionPH", floatTOstring(medicionPH));
+  resultado += parameterToJsonHalf("MedicionCE", floatTOstring(medicionCE));
+  resultado += parameterToJsonHalf("NivelTanquePrincipal", intTOstring(medicionNivelTanquePrincial));
+  resultado += parameterToJsonHalf("NivelTanqueLimpia", intTOstring(medicionNivelTanqueAguaLimpia));
+  resultado += parameterToJsonHalf("NivelTanqueDescarte", intTOstring(medicionNivelTanqueDesechable));
+  resultado += parameterToJsonHalf("NivelPhMas", intTOstring(medicionNivelPHmas));
+  resultado += parameterToJsonHalf("NivelPhMenos", intTOstring(medicionNivelPHmenos));
+  resultado += parameterToJsonHalf("NivelNutrienteA", intTOstring(medicionNivelNutrienteA));
+  resultado += parameterToJsonHalf("NivelNutrienteB", intTOstring(medicionNivelNutrienteB));
+  resultado += parameterToJsonHalf("Alertas", a);
+  resultado += parameterToJsonHalf("Errores", e);
   resultado += "}";
   /*
     //crear Json
@@ -894,6 +907,8 @@ bool loadConfig()
   CantidadHorasLuz = json["CantidadHorasLuz"];
   HoraInicioLuz = json["HoraInicioLuz"];
   PH_aceptable = json["PH_aceptable"];
+  ssid = json["SSID"];
+  password = json["Password"];
 
   //  SERIAL_PRINT("id=", idDispositivo);
   //  SERIAL_PRINT("N=", Notificaciones);
