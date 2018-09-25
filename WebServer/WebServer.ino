@@ -1,8 +1,10 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
+//#include <WiFiClient.h>
 //#include <WiFiClientSecure.h>
+#include <ESP8266WebServer.h>
+#include <EEPROM.h>
 
 #include <Time.h>
 #include <Wire.h>
@@ -12,7 +14,7 @@
 #include "SPISlave.h"
 
 #define DEBUG
-//********************************** PROTOCOLO DE COMUNICACION *****************************
+//********************************** << PROTOCOLO DE COMUNICACION *****************************
 #ifdef  DEBUG
 #define DELIMITER_CHARACTER '|'
 #define START_CHARACTER '#'
@@ -40,27 +42,60 @@
 #define SIZE_MSG_QUEUE   10
 
 String receivedPackage = "";
-
 int COMANDO = 0;
+bool enviarPaquete = true;
+bool enviarPaquete2 = true;
+unsigned long timeout;
+unsigned long timeout2;
+#define SEND_PACKAGE_TIME 45000
+#define SEND_PACKAGE2_TIME 15000
+bool mutexSPI = true;// para que no se pise el SPI con la generacion del jSon.
+bool mutexWifi = true;// para que no se pise el ingreso del nuevo SSID y Pass con la generacion del jSon.
+
+//********************************** PROTOCOLO DE COMUNICACION >> *****************************
+//*********************************************************************************************
+//********************************** << SSID **************************************************
+String pral = "<html>"
+              "<meta http-equiv='Content-Type' content='text/html; charset=utf-8'/>"
+              "<title>SmartZ WIFI</title> <style type='text/css'> body,td,th { color: #036; } body { background-color: #999; } </style> </head>"
+              "<body> "
+              "<h1>SmartZ WIFI</h1><br>"
+              "<form action='config' method='get' target='pantalla'>"
+              "<fieldset align='left' style='border-style:solid; border-color:#336666; width:200px; height:180px; padding:10px; margin: 5px;'>"
+              "<legend><strong>Configurar WI-FI</strong></legend>"
+              "SSID: <br> <input name='ssid' type='text' size='15'/> <br><br>"
+              "PASSWORD: <br> <input name='pass' type='password' size='15'/> <br><br>"
+              "<input type='submit' value='Comprobar conexion' />"
+              "</fieldset>"
+              "</form>"
+              "<iframe id='pantalla' name='pantalla' src='' width=900px height=400px frameborder='0' scrolling='no'></iframe>"
+              "</body>"
+              "</html>";
+
+ESP8266WebServer server(80);
+
+String ssid_leido;
+String pass_leido;
+int ssid_tamano = 0;
+int pass_tamano = 0;
+char ssid[50];
+char password[50];
+//********************************** SSID >> **************************************************
 
 //-------------------VARIABLES GLOBALES--------------------------
 
 bool CONFIGURAR_ALARMAS = true;
-
-const char *ssid = "";//"PolkoNet";
-const char *password = "";//"polkotite8308!";
-
-unsigned long previousMillis = 0;
+AlarmId loggit;
 
 char host[99];
-String strhost = "clientes.webbuilders.com.ar";
-String strurl = "/testSmartZ.php"; // donde tengo la web
+String strhost = "clientes.webbuilders.com.ar";// donde tengo la web
+String strurl = "/testSmartZ.php"; // metodo
 
+String jsonForUpload;
 String configPackage = "";
 String downloadConfig = "";
 
-
-String idDispositivo;//identificador unico de la placa ESP
+String idDispositivo; // identificador unico de la placa ESP
 int Notificaciones;
 int NotificacionesReal = 15;
 int CantidadHorasLuz;
@@ -80,21 +115,20 @@ float medicionNivelPHmas;
 float medicionNivelPHmenos;
 float medicionNivelNutrienteA;
 float medicionNivelNutrienteB;
-
 char Alert[50];
 char Error1[50];
 
-String jsonForUpload;
-
-AlarmId loggit;
-
-bool enviarPaquete = true;
-unsigned long timeout;
-#define SEND_PACKAGE_TIME 45000
-
-bool mutex = true;
+//********* Declaracion de variables para cada color R G B
+int rled = 2; // Pin para led rojo
+int bled = 4; // Pin para led azul
+int gled = 0;  // Pin para led verde
 
 void setup() {
+  //********* Se inicializan pines PWM como salida
+  pinMode(rled, OUTPUT);
+  pinMode(bled, OUTPUT);
+  pinMode(gled, OUTPUT);
+
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
 
@@ -104,6 +138,25 @@ void setup() {
 
   idDispositivo = String(ESP.getChipId());
   SERIAL_PRINT("chipId: ", idDispositivo);
+
+  char idDispChar[25];
+  String(idDispositivo).toCharArray(idDispChar, String(idDispositivo).length()+1);
+
+  WiFi.softAP("SmartZ", idDispChar);     //Nombre que se mostrara en las redes wifi
+
+  server.on("/", []() {
+    server.send(200, "text/html", pral);
+  });
+  server.on("/config", wifi_conf);
+  server.begin();
+  Serial.println("Webserver iniciado...");
+
+  Serial.println(lee(70));
+  Serial.println(lee(1));
+  Serial.println(lee(30));
+  intento_conexion();
+
+
 
   if (!SPIFFS.begin())
   {
@@ -122,33 +175,6 @@ void setup() {
     //enviarPaquete();
   }
 
-  int contconexion = 0;
-  // Conexión WIFI
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED and contconexion < 50) { //Cuenta hasta 50 si no se puede conectar lo cancela
-    ++contconexion;
-    delay(500);
-    Serial.print(".");
-  }
-  // Si quiero usar IP fija
-  if (contconexion < 50) {
-    //   para usar con ip fija
-    //   IPAddress ip(192, 168, 0, 201);
-    //   IPAddress gateway(192, 168, 0, 1);
-    //   IPAddress subnet(255, 255, 255, 0);
-    //   IPAddress dns(8, 8, 8, 8);
-    //   WiFi.config(ip, dns, gateway, subnet);
-    //   WiFi.setDNS(dns);
-
-    Serial.println("");
-    Serial.println("WiFi conectado");
-    Serial.println(WiFi.localIP());
-  }
-  else {
-    Serial.println("");
-    Serial.println("Error de conexion");
-  }
-
   //*************************************************************************** SPI
 
   SPISlave.onData([](uint8_t * data, size_t len) {
@@ -162,7 +188,7 @@ void setup() {
     char payLoad[25];
     char package[32];
     char aux[22];
-    if (mutex)
+    if (mutexSPI)
     {
       if (checkPackageComplete()) {
         strcpy(payLoad, "00");
@@ -237,28 +263,22 @@ void setup() {
   SPISlave.begin();
   SPISlave.setStatus(millis());
 
-  //SPISlave.setData("Come on Mega!");
 }
 
 //--------------------------LOOP--------------------------------
 void loop() {
-  //Serial.println("");
-  if (CONFIGURAR_ALARMAS)
-  {
-    setTime(0, 0, 0, 1, 1, 2000);
-    loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
-    //Alarm.timerRepeat(63, upDatos);
-    ////Alarm.disable();
-    CONFIGURAR_ALARMAS = false;
-  }
+  server.handleClient();
+
+  //if (CONFIGURAR_ALARMAS)
+  //{
+  //setTime(0, 0, 0, 1, 1, 2000);
+  //loggit = Alarm.timerRepeat(NotificacionesReal, enviardatos);
+  //Alarm.timerRepeat(63, upDatos);
+  ////Alarm.disable();
+  //CONFIGURAR_ALARMAS = false;
+  // }
 
   //digitalClockDisplay();
-
-  //  if (SoftSerial.available()) {
-  //    Serial.println("SIIIII");
-  //    mySerialFunction();
-  //  }
-  //serialEvent();
 
   if (downloadConfig != "" && downloadConfig != configPackage)
   {
@@ -273,8 +293,8 @@ void loop() {
       //Serial.println(downloadConfig);
       if (NotificacionesReal != Notificaciones) {
         NotificacionesReal = Notificaciones;
-        CONFIGURAR_ALARMAS = true;
-        Alarm.disable(loggit);
+        //        CONFIGURAR_ALARMAS = true;
+        //        Alarm.disable(loggit);
       }
       if (!loadConfig())
       {
@@ -295,7 +315,18 @@ void loop() {
     enviarPaquete = true;
   }
 
-  Alarm.delay(1000);
+  if (enviarPaquete2) {
+    timeout2 = millis();
+    enviarPaquete2 = false;
+  }
+  if ((millis() - timeout2 > SEND_PACKAGE2_TIME)) {
+    Serial.println("GENERANDO JSON");
+    enviardatos();
+    enviarPaquete2 = true;
+  }
+
+  checkStatusWifi();
+  delay(2000);
 }
 //---------------------------------------------------------------------------------------------------------------//
 String parameterToJson(String nombre, String valor)
@@ -315,7 +346,7 @@ String intTOstring(int x)//Convertir de int a String
 //---------------------------------------------------------------------------------------------------------------//
 void upDatos()
 {
-  mutex = false;
+  mutexSPI = false;
   String linea;
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -339,7 +370,7 @@ void upDatos()
     }
     http.end();   //Close connection
   }
-  mutex = true;
+  mutexSPI = true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 void enviardatos()
@@ -348,7 +379,7 @@ void enviardatos()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\",\"SSID\":\"PolkoNet\",\"Password\":\"polkotite8308!\"}");
+    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}");
 
     int httpCode = http.GET();
     if (httpCode > 0) {
@@ -426,8 +457,6 @@ void enviardatos()
     CantidadHorasLuz = root["HorasLuz"];
     HoraInicioLuz = root["HoraInicioLuz"];
     PH_aceptable = root["pHaceptable"];
-    ssid = root["SSID"];
-    password = root["Password"];
 
     //  SERIAL_PRINT("id=", id);
     //  SERIAL_PRINT("N=", Notificacion);
@@ -907,14 +936,13 @@ bool loadConfig()
   CantidadHorasLuz = json["CantidadHorasLuz"];
   HoraInicioLuz = json["HoraInicioLuz"];
   PH_aceptable = json["PH_aceptable"];
-  ssid = json["SSID"];
-  password = json["Password"];
 
-  //  SERIAL_PRINT("id=", idDispositivo);
-  //  SERIAL_PRINT("N=", Notificaciones);
-  //  SERIAL_PRINT("CHL=", CantidadHorasLuz);
-  //  SERIAL_PRINT("HL=", HoraInicioLuz);
-  //  SERIAL_PRINT("PH=", PH_aceptable);
+  SERIAL_PRINT("id=", idDispositivo);
+  SERIAL_PRINT("N=", Notificaciones);
+  SERIAL_PRINT("CHL=", CantidadHorasLuz);
+  SERIAL_PRINT("HL=", HoraInicioLuz);
+  SERIAL_PRINT("PH=", PH_aceptable);
+
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -939,4 +967,171 @@ bool saveConfig() {
 }
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** FUNCIONES para FileSystem >
+//---------------------------------------------------------------------------------------------------------------//
+//************************************************************** < FUNCIONES guardar SSID
+//---------------------------------------------------------------------------------------------------------------//
+String arregla_simbolos(String a) {
+  a.replace("%C3%A1", "á");
+  a.replace("%C3%A9", "é");
+  a.replace("%C3%A", "i");
+  a.replace("%C3%B3", "ó");
+  a.replace("%C3%BA", "ú");
+  a.replace("%21", "!");
+  a.replace("%23", "#");
+  a.replace("%24", "$");
+  a.replace("%25", "%");
+  a.replace("%26", "&");
+  a.replace("%27", "/");
+  a.replace("%28", "(");
+  a.replace("%29", ")");
+  a.replace("%3D", "=");
+  a.replace("%3F", "?");
+  a.replace("%27", "'");
+  a.replace("%C2%BF", "¿");
+  a.replace("%C2%A1", "¡");
+  a.replace("%C3%B1", "ñ");
+  a.replace("%C3%91", "Ñ");
+  a.replace("+", " ");
+  a.replace("%2B", "+");
+  a.replace("%22", "\"");
+  return a;
+}
+
+void wifi_conf() {
+  int cuenta = 0;
+  SERIAL_PRINT("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA ", COMANDO);
+  String getssid = server.arg("ssid"); //Recibimos los valores que envia por GET el formulario web
+  String getpass = server.arg("pass");
+
+  getssid = arregla_simbolos(getssid); //Reemplazamos los simbolos que aparecen cun UTF8 por el simbolo correcto
+  getpass = arregla_simbolos(getpass);
+
+  ssid_tamano = getssid.length() + 1;  //Calculamos la cantidad de caracteres que tiene el ssid y la clave
+  pass_tamano = getpass.length() + 1;
+
+  getssid.toCharArray(ssid, ssid_tamano); //Transformamos el string en un char array ya que es lo que nos pide WIFI.begin()
+  getpass.toCharArray(password, pass_tamano);
+
+  Serial.println(ssid);     //para depuracion
+  Serial.println(password);
+  colorRGB(1);
+  WiFi.begin(ssid, password);     //Intentamos conectar
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+    cuenta++;
+    if (cuenta > 20) {
+      colorRGB(3);
+      graba(70, "noconfigurado");
+      server.send(200, "text/html", String("<h2>No se pudo realizar la conexion<br>no se guardaron los datos.</h2>"));
+      return;
+    }
+  }
+  Serial.print(WiFi.localIP());
+  graba(70, "configurado");
+  graba(1, getssid);
+  graba(30, getpass);
+  server.send(200, "text/html", String("<h2>Conexion exitosa a: "
+                                       + getssid + "<br> El pass ingresado es: " + getpass + "<br>Datos correctamente guardados."));
+  colorRGB(2);
+}
+
+void graba(int addr, String a) {
+  SERIAL_PRINT("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG ", COMANDO);
+  int tamano = (a.length() + 1);
+  Serial.print(tamano);
+  char inchar[30];    //'30' Tamaño maximo del string
+  a.toCharArray(inchar, tamano);
+  EEPROM.write(addr, tamano);
+  for (int i = 0; i < tamano; i++) {
+    addr++;
+    EEPROM.write(addr, inchar[i]);
+  }
+  EEPROM.commit();
+}
+
+String lee(int addr) {
+  SERIAL_PRINT("LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL ", COMANDO);
+  String nuevoString;
+  int valor;
+  int tamano = EEPROM.read(addr);
+  for (int i = 0; i < tamano; i++) {
+    addr++;
+    valor = EEPROM.read(addr);
+    nuevoString += (char)valor;
+  }
+  return nuevoString;
+}
+
+void intento_conexion() {
+  SERIAL_PRINT("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB ", COMANDO);
+  colorRGB(1);
+  if (lee(70).equals("configurado")) {
+    ssid_leido = lee(1);      //leemos ssid y password
+    pass_leido = lee(30);
+
+    Serial.println(ssid_leido);  //Para depuracion
+    Serial.println(pass_leido);
+
+    ssid_tamano = ssid_leido.length() + 1;  //Calculamos la cantidad de caracteres que tiene el ssid y la clave
+    pass_tamano = pass_leido.length() + 1;
+
+    ssid_leido.toCharArray(ssid, ssid_tamano); //Transf. el String en un char array ya que es lo que nos pide WiFi.begin()
+    pass_leido.toCharArray(password, pass_tamano);
+
+    int cuenta = 0;
+    WiFi.begin(ssid, password);      //Intentamos conectar
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      cuenta++;
+      if (cuenta > 20) {
+        Serial.println("Fallo al conectar");
+        return;
+      }
+    }
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("Conexion exitosa a: ");
+    Serial.println(ssid);
+    Serial.println(WiFi.localIP());
+    colorRGB(2);
+  }
+}
+
+void checkStatusWifi()
+{
+  if (WiFi.status() == WL_CONNECTED)
+    colorRGB(2);
+  else
+    colorRGB(1);
+}
+
+void colorRGB(int color)//0 off, 1 Rojo, 2 Verde, 3 Amarillo
+{
+  switch ( color)
+  {
+    case 1:
+      analogWrite(rled, 255); // Se enciende color rojo
+      analogWrite(bled, 0); // Se apaga color azul
+      analogWrite(gled, 0); // Se apaga colo verde
+      break;
+    case 2:
+      analogWrite(rled, 0); // Se enciende color rojo
+      analogWrite(bled, 0); // Se apaga color azul
+      analogWrite(gled, 255); // Se apaga colo verde
+      break;
+    case 3:
+      analogWrite(rled, 255); // Se enciende color amarillo
+      analogWrite(gled, 255); // Mezclando r = 255 / g = 255 / b = 0
+      analogWrite(bled, 0); // Se apaga colo verde
+      break;
+    default:
+      analogWrite(rled, 0); // Se enciende color rojo
+      analogWrite(bled, 0);  // Se apaga color azul
+      analogWrite(gled, 0);  // Se apaga colo verde
+  }
+}
+//---------------------------------------------------------------------------------------------------------------//
+//************************************************************** FUNCIONES guardar SSID >
 //---------------------------------------------------------------------------------------------------------------//
