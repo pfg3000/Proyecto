@@ -96,8 +96,7 @@ String configPackage = "";
 String downloadConfig = "";
 
 String idDispositivo; // identificador unico de la placa ESP
-int Notificaciones;
-int NotificacionesReal = 15;
+int Encendido;
 int CantidadHorasLuz;
 int HoraInicioLuz;
 float PH_aceptable;
@@ -120,13 +119,11 @@ char Error1[50];
 
 //********* Declaracion de variables para cada color R G B
 int rled = 2; // Pin para led rojo
-int bled = 4; // Pin para led azul
 int gled = 0;  // Pin para led verde
 
 void setup() {
   //********* Se inicializan pines PWM como salida
   pinMode(rled, OUTPUT);
-  pinMode(bled, OUTPUT);
   pinMode(gled, OUTPUT);
 
   //********* Protocolo de comunicación.
@@ -140,7 +137,7 @@ void setup() {
   SERIAL_PRINT("chipId: ", idDispositivo);
 
   char idDispChar[25];
-  String(idDispositivo).toCharArray(idDispChar, String(idDispositivo).length()+1);
+  String(idDispositivo).toCharArray(idDispChar, String(idDispositivo).length() + 1);
 
   WiFi.softAP("SmartZ", idDispChar);     //Nombre que se mostrara en las redes wifi
 
@@ -212,6 +209,12 @@ void setup() {
           case 18:
             strcpy(cmd, "18");
             parameterToJson("pHaceptable", intTOstring(PH_aceptable)).toCharArray(aux, 22);
+            snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+            strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+            break;
+          case 19:
+            strcpy(cmd, "19");
+            parameterToJson("pwr", intTOstring(Encendido)).toCharArray(aux, 22);
             snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
             strcpy(package, preparePackage(payLoad, strlen(payLoad)));
             break;
@@ -291,11 +294,11 @@ void loop() {
     {
       Serial.println("Config saved");
       //Serial.println(downloadConfig);
-      if (NotificacionesReal != Notificaciones) {
-        NotificacionesReal = Notificaciones;
+      //if (NotificacionesReal != Notificaciones) {
+      //  NotificacionesReal = Notificaciones;
         //        CONFIGURAR_ALARMAS = true;
         //        Alarm.disable(loggit);
-      }
+      //}
       if (!loadConfig())
       {
         Serial.println("Failed to load config");
@@ -379,7 +382,7 @@ void enviardatos()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}");
+    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}");
 
     int httpCode = http.GET();
     if (httpCode > 0) {
@@ -405,7 +408,7 @@ void enviardatos()
     String dato;
     json1.printTo(dato);
     //datos = "dato=" + dato;
-    datos = "dato={\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}";
+    datos = "dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}";
 
     String linea = "error";
     //WiFiClientSecure client; //esto es para https
@@ -446,20 +449,20 @@ void enviardatos()
   SERIAL_PRINT("linea=", linea);
 */
 
-  //linea = "{\"id\":\"12625275\",\"Notificacion\":\"015\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}";
+  //linea = "{\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}";
   if (linea != "") {
     StaticJsonBuffer<500> jsonBuffer;
     char json[300];
     linea.toCharArray(json, 300);
     JsonObject& root = jsonBuffer.parseObject(json);
     //idDispositivo = root["id"];
-    Notificaciones = root["Notificacion"];
+    Encendido = root["Power"];
     CantidadHorasLuz = root["HorasLuz"];
     HoraInicioLuz = root["HoraInicioLuz"];
     PH_aceptable = root["pHaceptable"];
 
     //  SERIAL_PRINT("id=", id);
-    //  SERIAL_PRINT("N=", Notificacion);
+    //  SERIAL_PRINT("E=", Encendido);
     //  SERIAL_PRINT("CHL=", HorasLuz);
     //  SERIAL_PRINT("HL=", HoraInicioLuz);
     //  SERIAL_PRINT("PH=", pHaceptable);
@@ -931,14 +934,13 @@ bool loadConfig()
     return false;
   }
 
-  //idDispositivo = json["idDispositivo"];
-  Notificaciones = json["Notificaciones"];
+  Encendido = json["Power"];
   CantidadHorasLuz = json["CantidadHorasLuz"];
   HoraInicioLuz = json["HoraInicioLuz"];
   PH_aceptable = json["PH_aceptable"];
 
   SERIAL_PRINT("id=", idDispositivo);
-  SERIAL_PRINT("N=", Notificaciones);
+  SERIAL_PRINT("N=", Encendido);
   SERIAL_PRINT("CHL=", CantidadHorasLuz);
   SERIAL_PRINT("HL=", HoraInicioLuz);
   SERIAL_PRINT("PH=", PH_aceptable);
@@ -1107,29 +1109,21 @@ void checkStatusWifi()
     colorRGB(1);
 }
 
-void colorRGB(int color)//0 off, 1 Rojo, 2 Verde, 3 Amarillo
+void colorRGB(int color)//0 off, 1 Rojo, 2 Verde
 {
   switch ( color)
   {
     case 1:
-      analogWrite(rled, 255); // Se enciende color rojo
-      analogWrite(bled, 0); // Se apaga color azul
-      analogWrite(gled, 0); // Se apaga colo verde
+      digitalWrite(rled, HIGH); // Se enciende color rojo
+      digitalWrite(gled, LOW); // Se apaga colo verde
       break;
     case 2:
-      analogWrite(rled, 0); // Se enciende color rojo
-      analogWrite(bled, 0); // Se apaga color azul
-      analogWrite(gled, 255); // Se apaga colo verde
-      break;
-    case 3:
-      analogWrite(rled, 255); // Se enciende color amarillo
-      analogWrite(gled, 255); // Mezclando r = 255 / g = 255 / b = 0
-      analogWrite(bled, 0); // Se apaga colo verde
+      digitalWrite(rled, LOW); // Se enciende color rojo
+      digitalWrite(gled, HIGH); // Se apaga colo verde
       break;
     default:
-      analogWrite(rled, 0); // Se enciende color rojo
-      analogWrite(bled, 0);  // Se apaga color azul
-      analogWrite(gled, 0);  // Se apaga colo verde
+      digitalWrite(rled, LOW); // Se enciende color rojo
+      digitalWrite(gled, LOW);  // Se apaga colo verde
   }
 }
 //---------------------------------------------------------------------------------------------------------------//
