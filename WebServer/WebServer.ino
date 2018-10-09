@@ -97,6 +97,7 @@ String downloadConfig = "";
 
 String idDispositivo; // identificador unico de la placa ESP
 int Encendido;
+int Vaciado;
 int CantidadHorasLuz;
 int HoraInicioLuz;
 float PH_aceptable;
@@ -215,6 +216,12 @@ void setup() {
           case 19:
             strcpy(cmd, "19");
             parameterToJson("pwr", intTOstring(Encendido)).toCharArray(aux, 22);
+            snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
+            strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+            break;
+		  case 20:
+            strcpy(cmd, "20");
+            parameterToJson("Vaciado", intTOstring(Vaciado)).toCharArray(aux, 22);
             snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
             strcpy(package, preparePackage(payLoad, strlen(payLoad)));
             break;
@@ -382,7 +389,7 @@ void enviardatos()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}");
+    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\",\"Vaciado\":\"0\"}");
 
     int httpCode = http.GET();
     if (httpCode > 0) {
@@ -408,7 +415,7 @@ void enviardatos()
     String dato;
     json1.printTo(dato);
     //datos = "dato=" + dato;
-    datos = "dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}";
+    datos = "dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\",\"Vaciado\":\"0\"}";
 
     String linea = "error";
     //WiFiClientSecure client; //esto es para https
@@ -449,7 +456,7 @@ void enviardatos()
   SERIAL_PRINT("linea=", linea);
 */
 
-  //linea = "{\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\"}";
+  //linea = "{\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\",\"Vaciado\":\"0\"}";
   if (linea != "") {
     StaticJsonBuffer<500> jsonBuffer;
     char json[300];
@@ -460,6 +467,7 @@ void enviardatos()
     CantidadHorasLuz = root["HorasLuz"];
     HoraInicioLuz = root["HoraInicioLuz"];
     PH_aceptable = root["pHaceptable"];
+    Vaciado = root["Vaciado"];
 
     //  SERIAL_PRINT("id=", id);
     //  SERIAL_PRINT("E=", Encendido);
@@ -938,6 +946,7 @@ bool loadConfig()
   CantidadHorasLuz = json["CantidadHorasLuz"];
   HoraInicioLuz = json["HoraInicioLuz"];
   PH_aceptable = json["PH_aceptable"];
+  Vaciado = json["Vaciado"];
 
   SERIAL_PRINT("id=", idDispositivo);
   SERIAL_PRINT("N=", Encendido);

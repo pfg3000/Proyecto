@@ -173,11 +173,15 @@ bool ALT_MINIMO_PRINCIPAL = false;
 bool ALT_MAXIMO_PRINCIPAL = false;
 bool ALT_RTC_DESCONFIGURADO = false;
 bool ALT_RTC_DESCONECTADO = false;
+bool ALT_VACIADO_REALIZADO = false;
+bool ALT_LLENADO_REALIZADO = false;
 
-#define CANTIDAD_MEDICIONES 10 //Cantidad de mediciones de nivel (para aminorar el error)
-#define TIEMPO_GOTEO 5         //segundos x cada ml
-#define TIEMPO_BOMBA_AGUA 10   //segundos x cada litro
-#define CM_POR_LITRO 2         //cm x cada litro
+#define CANTIDAD_INTENTOS 5       //Cantidad de intentos de vaciado o llenado de agua por segundo.
+#define CANTIDAD_MEDICIONES 10    //Cantidad de mediciones de nivel (para aminorar el error)
+#define TIEMPO_GOTEO 5            //segundos x cada ml
+#define TIEMPO_BOMBA_AGUA 10      //segundos x cada litro
+#define TIEMPO_LECTURA_NIVEL 1000 //segundos de lectura de nivel en llenado / vaciado
+#define CM_POR_LITRO 2            //cm x cada litro
 
 #define TIEMPO_VENTILACION 60 //Tiempo en el que se ejecuta el timer de apagado de ventilador.
 
@@ -445,7 +449,7 @@ void loop()
   pisoTanqueAguaPrincipal = 15.0;
 
   if ((hsLuzParametro != hsLuzParametroOriginal && hsLuzParametroOriginal != 0) || (horaInicioLuz != horaInicioLuzOriginal && horaInicioLuzOriginal != -1))
-  {//Si vino de la ESP algun cambio de valores, reconfiguro las alarmas.
+  { //Si vino de la ESP algun cambio de valores, reconfiguro las alarmas.
     hsLuzParametroOriginal = hsLuzParametro;
     horaInicioLuzOriginal = horaInicioLuz;
     CONFIGURAR_ALARMAS = true;
@@ -454,7 +458,7 @@ void loop()
   }
 
   if (CONFIGURAR_ALARMAS)
-  {//Realizo la configuracion de las alarmas.
+  { //Realizo la configuracion de las alarmas.
     tmElements_t datetime;
     if (RTC.read(datetime) == true)
     {
@@ -559,7 +563,40 @@ void loop()
     }
   }
   if (CMD_SISTEMA_ENCENDIDO)
-  { /*
+  {
+    if (CMD_VACIAR_AGUA)
+    {
+      if (!vaciarTanque() && !tanqueVacio)
+      {
+                //Algo falló. Alertar
+        if (ERR_SALIDA_AGUA_DESCARTE == true)
+        {
+          generarAlerta("ERR_SALIDA_AGUA_DESCARTE");
+        }
+      }
+    }
+
+    if (tanqueVacio)
+    {
+      apagarTodo();
+      if (!llenarTanque())
+      {
+        //Algo falló. Alertar
+        if (ERR_INGRESO_AGUA_LIMPIA == true)
+        {
+          generarAlerta("ERR_INGRESO_AGUA_LIMPIA");
+        }
+      }
+      else
+      {
+        if (ALT_LLENADO_REALIZADO == true)
+        {
+          generarAlerta("ALT_LLENADO_REALIZADO");
+          encenderBombaPrincipal();
+        }
+      }
+    }
+
     if (!analizarAgua())
     {
       //Algo falló. Alertar
@@ -648,6 +685,25 @@ void loop()
       if (CMD_ADD_AGUA)
       {
         generarAlerta("CMD_ADD_AGUA");
+
+        apagarTodo();
+        if (!llenarTanque())
+        {
+          //Algo falló. Alertar
+          if (ERR_INGRESO_AGUA_LIMPIA == true)
+          {
+            generarAlerta("ERR_INGRESO_AGUA_LIMPIA");
+          }
+        }
+        else
+        {
+          if (ALT_LLENADO_REALIZADO == true)
+          {
+            generarAlerta("ALT_LLENADO_REALIZADO");
+            encenderBombaPrincipal();
+          }
+        }
+        /*
         if (maximoNivelTanquePrincial > medicionNivelTanquePrincial)
         { //Solo agrego agua limpia.
           float cantBajo = maximoNivelTanquePrincial - medicionNivelTanquePrincial;
@@ -682,43 +738,43 @@ void loop()
               generarAlerta("CMD_ADD_AGUA2"); //Tanque descarte con espacio insuficiente.
           }
         }
+      }*/
       }
-    }*/
 
-    if (!analizarAire())
-    {
-      //Algo falló. Alertar
-      if (ERR_MEDICION_HUMEDAD == true)
+      if (!analizarAire())
       {
-        generarAlerta("ERR_MEDICION_HUMEDAD");
-      }
-      if (ERR_MEDICION_TEMPERATURA == true)
-      {
-        generarAlerta("ERR_MEDICION_TEMPERATURA");
-      }
-      if (ERR_MEDICION_CO2 == true)
-      {
-        generarAlerta("ERR_MEDICION_CO2");
-      }
-    }
-    else
-    {
-      if (CMD_VENTILAR) //Si es necesario ventilar, lo enciendo, luego seteo una alarma para que se apague.
-      {
-        if (!VENTILADOR_FUNCIONANDO)
+        //Algo falló. Alertar
+        if (ERR_MEDICION_HUMEDAD == true)
         {
-          generarAlerta("CMD_VENTILAR");
-          encenderVentiladores();
-          Alarm.timerOnce(TIEMPO_VENTILACION, apagarVentiladores);
+          generarAlerta("ERR_MEDICION_HUMEDAD");
+        }
+        if (ERR_MEDICION_TEMPERATURA == true)
+        {
+          generarAlerta("ERR_MEDICION_TEMPERATURA");
+        }
+        if (ERR_MEDICION_CO2 == true)
+        {
+          generarAlerta("ERR_MEDICION_CO2");
+        }
+      }
+      else
+      {
+        if (CMD_VENTILAR) //Si es necesario ventilar, lo enciendo, luego seteo una alarma para que se apague.
+        {
+          if (!VENTILADOR_FUNCIONANDO)
+          {
+            generarAlerta("CMD_VENTILAR");
+            encenderVentiladores();
+            Alarm.timerOnce(TIEMPO_VENTILACION, apagarVentiladores);
+          }
         }
       }
     }
-  }
-  else
-  { //apago todo
-    apagarTodo();
-  }
-  /*
+    else
+    { //apago todo
+      apagarTodo();
+    }
+    /*
     //Se imprimen las variables
     Serial.print("Humedad: ");
     Serial.print(medicionHumedad);
@@ -764,273 +820,273 @@ void loop()
     Serial.println("");
   */
 
-  //  Serial.println("");
-  //  Serial.println("");
+    //  Serial.println("");
+    //  Serial.println("");
 
-  Alarm.delay(1000); //delay(2000); //Se espera 2 segundos para seguir leyendo //datos
-}
-
-//************************************************************** FUNCIONES ************************************************************** FUNCIONES
-//************************************************************** FUNCIONES ************************************************************** FUNCIONES
-//************************************************************** FUNCIONES ************************************************************** FUNCIONES
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** < FUNCIONES de encendido y apagado de dispositivos
-//---------------------------------------------------------------------------------------------------------------//
-bool apagarTodo()
-{
-  apagarBombaNutrientesA();
-  apagarBombaNutrientesB();
-  apagarBombaPrincipal();
-  apagarBombaVaciado();
-  apagarCalentador();
-  apagarCE();
-  apagarEnfriador();
-  apagarLlenado();
-  apagarLuces();
-  apagarPH();
-  apagarPHmas();
-  apagarPHmenos();
-  apagarVentiladores();
-
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//BombaEnfriadoPinRELE1
-bool encenderEnfriador()
-{
-  ENFRIADOR_FUNCIONANDO = true;
-  digitalWrite(BombaEnfriadoPinRELE1, HIGH);
-  return true;
-}
-bool apagarEnfriador()
-{
-  ENFRIADOR_FUNCIONANDO = false;
-  digitalWrite(BombaEnfriadoPinRELE1, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//BombaLlenadoPinRELE2
-bool encenderLlenado()
-{
-  digitalWrite(BombaLlenadoPinRELE2, HIGH);
-  return true;
-}
-bool apagarLlenado()
-{
-  digitalWrite(BombaLlenadoPinRELE2, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//BombaPrincipalPinRELE3
-bool encenderBombaPrincipal()
-{
-  BOMBA_FUNCIONANDO = true;
-  digitalWrite(BombaPrincipalPinRELE3, HIGH);
-  return true;
-}
-bool apagarBombaPrincipal()
-{
-  BOMBA_FUNCIONANDO = false;
-  digitalWrite(BombaPrincipalPinRELE3, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//BombaVaciadoPinRELE4
-bool encenderBombaVaciado()
-{
-  digitalWrite(BombaVaciadoPinRELE4, HIGH);
-  return true;
-}
-bool apagarBombaVaciado()
-{
-  digitalWrite(BombaVaciadoPinRELE4, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//NutrienteApinRELE5
-bool encenderNutrientesA()
-{
-  digitalWrite(NutrienteApinRELE5, HIGH);
-  return true;
-}
-bool apagarBombaNutrientesA()
-{
-  digitalWrite(NutrienteApinRELE5, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//NutrienteBpinRELE6
-bool encenderNutrientesB()
-{
-  digitalWrite(NutrienteBpinRELE6, HIGH);
-  return true;
-}
-bool apagarBombaNutrientesB()
-{
-  digitalWrite(NutrienteBpinRELE6, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//pHMasPinRELE7
-bool encenderPHmas()
-{
-  digitalWrite(pHMasPinRELE7, HIGH);
-  return true;
-}
-bool apagarPHmas()
-{
-  digitalWrite(pHMasPinRELE7, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//pHmenosPinRELE8
-bool encenderPHmenos()
-{
-  digitalWrite(pHmenosPinRELE8, HIGH);
-  return true;
-}
-bool apagarPHmenos()
-{
-  digitalWrite(pHmenosPinRELE8, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//LucesPinRELE9
-void encenderLuces()
-{
-  digitalWrite(LucesPinRELE9, HIGH);
-  //Serial.print("encenderLuces");
-  //return true;
-}
-void apagarLuces()
-{
-  digitalWrite(LucesPinRELE9, LOW);
-  //Serial.print("apagarLuces");
-  //return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//VentiladoresPinRELE10
-bool encenderVentiladores()
-{
-  digitalWrite(VentiladoresPinRELE10, HIGH);
-  VENTILADOR_FUNCIONANDO = true;
-  Serial.println("encenderVentiladores");
-  return true;
-}
-void apagarVentiladores()
-{
-  digitalWrite(VentiladoresPinRELE10, LOW);
-  VENTILADOR_FUNCIONANDO = false;
-  Serial.println("apagarVentiladores");
-  //return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//CalentadorPinRELE11
-bool encenderCalentador()
-{
-  CALENTADOR_FUNCIONANDO = true;
-  digitalWrite(CalentadorPinRELE11, HIGH);
-  return true;
-}
-bool apagarCalentador()
-{
-  CALENTADOR_FUNCIONANDO = false;
-  digitalWrite(CalentadorPinRELE11, LOW);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//PHpinRELE12
-bool encenderPH()
-{
-  digitalWrite(PHpinRELE12, LOW);
-  return true;
-}
-bool apagarPH()
-{
-  digitalWrite(PHpinRELE12, HIGH);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//CEpinRELE13
-bool encenderCE()
-{
-  digitalWrite(CEpinRELE13, LOW);
-  return true;
-}
-bool apagarCE()
-{
-  digitalWrite(CEpinRELE13, HIGH);
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** FUNCIONES de encendido y apagado de dispositivos >
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** < FUNCIONES de medición
-//---------------------------------------------------------------------------------------------------------------//
-bool nivelTanque(char caso[])
-{
-  bool resultado = false;
-  int estado = 0;
-  if (strcmp(caso, "tanqueLleno") == 0)
-  {
-    estado = digitalRead(pinNivel13);
-    goto continua;
-  }
-  if (strcmp(caso, "tanqueMedio") == 0)
-  {
-    estado = digitalRead(pinNivel12);
-    goto continua;
-  }
-  if (strcmp(caso, "tanqueVacio") == 0)
-  {
-    estado = digitalRead(pinNivel11);
-    goto continua;
+    Alarm.delay(1000); //delay(2000); //Se espera 2 segundos para seguir leyendo //datos
   }
 
-continua:
-
-  switch (estado)
+  //************************************************************** FUNCIONES ************************************************************** FUNCIONES
+  //************************************************************** FUNCIONES ************************************************************** FUNCIONES
+  //************************************************************** FUNCIONES ************************************************************** FUNCIONES
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** < FUNCIONES de encendido y apagado de dispositivos
+  //---------------------------------------------------------------------------------------------------------------//
+  bool apagarTodo()
   {
-  case 0:
-    resultado = false;
-    break;
-  case 1:
-    resultado = true;
-    break;
+    apagarBombaNutrientesA();
+    apagarBombaNutrientesB();
+    apagarBombaPrincipal();
+    apagarBombaVaciado();
+    apagarCalentador();
+    apagarCE();
+    apagarEnfriador();
+    apagarLlenado();
+    apagarLuces();
+    apagarPH();
+    apagarPHmas();
+    apagarPHmenos();
+    apagarVentiladores();
+
+    return true;
   }
-  return resultado;
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirNivelLiquido(char caso[])
-{
-  float resultado = 0.0;
-  if (strcmp(caso, "medicionNivelPHmas") == 0)
+  //---------------------------------------------------------------------------------------------------------------//
+  //BombaEnfriadoPinRELE1
+  bool encenderEnfriador()
   {
-    resultado = analogRead(pinNivel6);
-    goto continua;
+    ENFRIADOR_FUNCIONANDO = true;
+    digitalWrite(BombaEnfriadoPinRELE1, HIGH);
+    return true;
   }
-
-  if (strcmp(caso, "medicionNivelPHmenos") == 0)
+  bool apagarEnfriador()
   {
-    resultado = analogRead(pinNivel8);
-    goto continua;
+    ENFRIADOR_FUNCIONANDO = false;
+    digitalWrite(BombaEnfriadoPinRELE1, LOW);
+    return true;
   }
+  //---------------------------------------------------------------------------------------------------------------//
+  //BombaLlenadoPinRELE2
+  bool encenderLlenado()
+  {
+    digitalWrite(BombaLlenadoPinRELE2, HIGH);
+    return true;
+  }
+  bool apagarLlenado()
+  {
+    digitalWrite(BombaLlenadoPinRELE2, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //BombaPrincipalPinRELE3
+  bool encenderBombaPrincipal()
+  {
+    BOMBA_FUNCIONANDO = true;
+    digitalWrite(BombaPrincipalPinRELE3, HIGH);
+    return true;
+  }
+  bool apagarBombaPrincipal()
+  {
+    BOMBA_FUNCIONANDO = false;
+    digitalWrite(BombaPrincipalPinRELE3, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //BombaVaciadoPinRELE4
+  bool encenderBombaVaciado()
+  {
+    digitalWrite(BombaVaciadoPinRELE4, HIGH);
+    return true;
+  }
+  bool apagarBombaVaciado()
+  {
+    digitalWrite(BombaVaciadoPinRELE4, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //NutrienteApinRELE5
+  bool encenderNutrientesA()
+  {
+    digitalWrite(NutrienteApinRELE5, HIGH);
+    return true;
+  }
+  bool apagarBombaNutrientesA()
+  {
+    digitalWrite(NutrienteApinRELE5, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //NutrienteBpinRELE6
+  bool encenderNutrientesB()
+  {
+    digitalWrite(NutrienteBpinRELE6, HIGH);
+    return true;
+  }
+  bool apagarBombaNutrientesB()
+  {
+    digitalWrite(NutrienteBpinRELE6, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //pHMasPinRELE7
+  bool encenderPHmas()
+  {
+    digitalWrite(pHMasPinRELE7, HIGH);
+    return true;
+  }
+  bool apagarPHmas()
+  {
+    digitalWrite(pHMasPinRELE7, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //pHmenosPinRELE8
+  bool encenderPHmenos()
+  {
+    digitalWrite(pHmenosPinRELE8, HIGH);
+    return true;
+  }
+  bool apagarPHmenos()
+  {
+    digitalWrite(pHmenosPinRELE8, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //LucesPinRELE9
+  void encenderLuces()
+  {
+    digitalWrite(LucesPinRELE9, HIGH);
+    //Serial.print("encenderLuces");
+    //return true;
+  }
+  void apagarLuces()
+  {
+    digitalWrite(LucesPinRELE9, LOW);
+    //Serial.print("apagarLuces");
+    //return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //VentiladoresPinRELE10
+  bool encenderVentiladores()
+  {
+    digitalWrite(VentiladoresPinRELE10, HIGH);
+    VENTILADOR_FUNCIONANDO = true;
+    Serial.println("encenderVentiladores");
+    return true;
+  }
+  void apagarVentiladores()
+  {
+    digitalWrite(VentiladoresPinRELE10, LOW);
+    VENTILADOR_FUNCIONANDO = false;
+    Serial.println("apagarVentiladores");
+    //return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //CalentadorPinRELE11
+  bool encenderCalentador()
+  {
+    CALENTADOR_FUNCIONANDO = true;
+    digitalWrite(CalentadorPinRELE11, HIGH);
+    return true;
+  }
+  bool apagarCalentador()
+  {
+    CALENTADOR_FUNCIONANDO = false;
+    digitalWrite(CalentadorPinRELE11, LOW);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //PHpinRELE12
+  bool encenderPH()
+  {
+    digitalWrite(PHpinRELE12, LOW);
+    return true;
+  }
+  bool apagarPH()
+  {
+    digitalWrite(PHpinRELE12, HIGH);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //CEpinRELE13
+  bool encenderCE()
+  {
+    digitalWrite(CEpinRELE13, LOW);
+    return true;
+  }
+  bool apagarCE()
+  {
+    digitalWrite(CEpinRELE13, HIGH);
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** FUNCIONES de encendido y apagado de dispositivos >
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** < FUNCIONES de medición
+  //---------------------------------------------------------------------------------------------------------------//
+  bool nivelTanque(char caso[])
+  {
+    bool resultado = false;
+    int estado = 0;
+    if (strcmp(caso, "tanqueLleno") == 0)
+    {
+      estado = digitalRead(pinNivel13);
+      goto continua;
+    }
+    if (strcmp(caso, "tanqueMedio") == 0)
+    {
+      estado = digitalRead(pinNivel12);
+      goto continua;
+    }
+    if (strcmp(caso, "tanqueVacio") == 0)
+    {
+      estado = digitalRead(pinNivel11);
+      goto continua;
+    }
 
-continua:
+  continua:
 
-  return resultado;
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirNivel(char caso[])
-{
-  int PinTrig;
-  int PinEcho;
-  /*
+    switch (estado)
+    {
+    case 0:
+      resultado = false;
+      break;
+    case 1:
+      resultado = true;
+      break;
+    }
+    return resultado;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirNivelLiquido(char caso[])
+  {
+    float resultado = 0.0;
+    if (strcmp(caso, "medicionNivelPHmas") == 0)
+    {
+      resultado = analogRead(pinNivel6);
+      goto continua;
+    }
+
+    if (strcmp(caso, "medicionNivelPHmenos") == 0)
+    {
+      resultado = analogRead(pinNivel8);
+      goto continua;
+    }
+
+  continua:
+
+    return resultado;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirNivel(char caso[])
+  {
+    int PinTrig;
+    int PinEcho;
+    /*
     if (strcmp(caso, "medicionNivelNutrienteA") == 0)
     {*/
-  PinTrig = pinNivel1;
-  PinEcho = pinNivel2;
-  /*    goto continua;
+    PinTrig = pinNivel1;
+    PinEcho = pinNivel2;
+    /*    goto continua;
     }
 
     if (strcmp(caso, "medicionNivelNutrienteB") == 0)
@@ -1060,350 +1116,352 @@ float medirNivel(char caso[])
       PinEcho = pinNivel14;
     }
   */
-continua:
+  continua:
 
-  //  digitalWrite(PinTrig, LOW);
-  //  delayMicroseconds(2);
-  //
-  //  digitalWrite(PinTrig, HIGH);
-  //  delayMicroseconds(10);
-  //
-  //  float tiempo = pulseIn(PinEcho, HIGH);
-  //  float distancia = (tiempo / 2) / 29.1;
-  //  return distancia;
+    //  digitalWrite(PinTrig, LOW);
+    //  delayMicroseconds(2);
+    //
+    //  digitalWrite(PinTrig, HIGH);
+    //  delayMicroseconds(10);
+    //
+    //  float tiempo = pulseIn(PinEcho, HIGH);
+    //  float distancia = (tiempo / 2) / 29.1;
+    //  return distancia;
 
-  float distancias[CANTIDAD_MEDICIONES], sum = 0, promedio = 0;
-  for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
-    distancias[i] = 0;
+    float distancias[CANTIDAD_MEDICIONES], sum = 0, promedio = 0;
+    for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
+      distancias[i] = 0;
 
-  for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
-  {
-    digitalWrite(PinTrig, LOW);
-    delayMicroseconds(2);
-    digitalWrite(PinTrig, HIGH);
-    delayMicroseconds(10);
-
-    float tiempo = pulseIn(PinEcho, HIGH);
-    float distancia = (tiempo / 2) / 29.1;
-    //distancia = 340m/s*tiempo;
-
-    //Serial.println(distancia);
-    distancias[i] = distancia;
-    delay(10);
-  }
-  int cant = 0, CantCeros = 0;
-
-  for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
-  {
-    if (distancias[i] != 0)
+    for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
     {
-      sum = sum + distancias[i];
-      cant++;
+      digitalWrite(PinTrig, LOW);
+      delayMicroseconds(2);
+      digitalWrite(PinTrig, HIGH);
+      delayMicroseconds(10);
+
+      float tiempo = pulseIn(PinEcho, HIGH);
+      float distancia = (tiempo / 2) / 29.1;
+      //distancia = 340m/s*tiempo;
+
+      //Serial.println(distancia);
+      distancias[i] = distancia;
+      delay(10);
+    }
+    int cant = 0, CantCeros = 0;
+
+    for (int i = 0; i < CANTIDAD_MEDICIONES; i++)
+    {
+      if (distancias[i] != 0)
+      {
+        sum = sum + distancias[i];
+        cant++;
+      }
+      else
+        CantCeros++;
+    }
+    if (CantCeros >= 2)
+      return 0; //Serial.print("Falla en sensor / desconectado ");
+
+    //Serial.println(CantCeros);
+
+    promedio = sum / cant;
+    //Serial.println(promedio);
+    return promedio;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirHumedad()
+  {
+    return dht.readHumidity(); //Se lee la humedad del aire.
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirTemperatura()
+  {
+    return dht.readTemperature(); //Se lee la temperatura del aire.
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirTemperaturaAgua()
+  {
+    sensorDS18B20.requestTemperatures();
+    return sensorDS18B20.getTempCByIndex(0); //Se lee la temperatura del agua.
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirPH()
+  {
+    apagarCE();
+    encenderPH();
+    delay(500);
+    int measure = analogRead(pinPH); //Se lee el pH.
+    //si es 0 esta conectado pero apagado.
+    //SERIAL_PRINT("pinPH:",measure);
+    if (measure == 0)
+      return 0.0;
+    double voltage = 5 / 1024.0 * measure;
+    apagarPH();
+    return 7 + ((2.5 - voltage) / 0.18);
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirCE()
+  {
+    apagarPH();
+    encenderCE();
+    delay(500);
+    int sensorValue = 0;
+    int outputValue = 0;
+    sensorValue = analogRead(pinCE);
+    //SERIAL_PRINT("pinCE:",sensorValue);
+    outputValue = map(sensorValue, 0, 1023, 0, 5000);
+    //SERIAL_PRINT("outputValue:",outputValue);
+    apagarCE();
+    return sensorValue * 5.00 / 1024;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  float medirCO2()
+  {
+    return gasSensor.getPPM(); //Se mide el co2.
+    //float rzero = gasSensor.getRZero();//Se mide el rzero para calibrar el co2.
+    //    Serial.println(":::::rzero ");
+    //    Serial.println(rzero);
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** FUNCIONES de medición >
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** < FUNCIONES de control
+  //---------------------------------------------------------------------------------------------------------------//
+  bool analizarAire()
+  {
+    CMD_VENTILAR = false;
+
+    //------------------------------------------------------- Humedad
+    medicionHumedad = medirHumedad();
+    ERR_MEDICION_HUMEDAD = false;
+    if (medicionHumedad == -10000)
+    {
+      medicionHumedad = 0.0;
+      ERR_MEDICION_HUMEDAD = true;
+      //return false;
+    }
+    else if (medicionHumedad < humedadMinParametro || medicionHumedad > humedadMaxParametro)
+    { //Se requiere alguna accion.
+      //encenderVentiladores();
+      CMD_VENTILAR = true;
+    }
+
+    //-------------------------------------------------------TMP
+    medicionTemperaturaAire = medirTemperatura();
+    ERR_MEDICION_TEMPERATURA = false;
+    if (medicionTemperaturaAire == -10000)
+    {
+      medicionTemperaturaAire = 0.0;
+      ERR_MEDICION_TEMPERATURA = true;
+      //return false;
+    }
+    else if (medicionTemperaturaAire < temperaturaAireMinParametro || medicionTemperaturaAire > temperaturaAireMaxParametro)
+    { //Se requiere alguna accion.
+      //encenderVentiladores();
+      CMD_VENTILAR = true;
+    }
+
+    //-------------------------------------------------------CO2
+    medicionCO2 = medirCO2();
+    ERR_MEDICION_CO2 = false;
+    if (medicionCO2 > 10000)
+    {
+      medicionCO2 = 0.0;
+      ERR_MEDICION_CO2 = true;
+      //return false;
+    }
+    else if (medicionCO2 < co2MinParametro || medicionCO2 > co2MaxParametro)
+    { //Se requiere alguna accion.
+      //encenderVentiladores();
+      CMD_VENTILAR = true;
+    }
+    if (ERR_MEDICION_HUMEDAD || ERR_MEDICION_TEMPERATURA || ERR_MEDICION_CO2)
+      return false;
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool analizarAgua()
+  {
+    apagarTodo();
+    //-------------------------------------------------------TMP
+    medicionTemperaturaAgua = medirTemperaturaAgua();
+    ERR_MEDICION_TEMPERATURA_AGUA = false;
+    if (medicionTemperaturaAgua < -100)
+    {
+      medicionTemperaturaAgua = 0.0;
+      ERR_MEDICION_TEMPERATURA_AGUA = true;
+      //return false;
+    }
+    else if (medicionTemperaturaAgua < temperaturaAguaMinParametro || medicionTemperaturaAgua > temperaturaAguaMaxParametro)
+    { //Se requiere alguna accion.
+      //encenderEnfriador();
+      if (medicionTemperaturaAgua < temperaturaAguaMinParametro)
+      { //Bajar temperatura.
+        CMD_BAJAR_TEMPERATURA_AGUA = true;
+        CMD_SUBIR_TEMPERATURA_AGUA = false;
+      }
+      else if (medicionTemperaturaAgua > temperaturaAguaMaxParametro)
+      { //Subir temperaruta.
+        CMD_BAJAR_TEMPERATURA_AGUA = false;
+        CMD_SUBIR_TEMPERATURA_AGUA = true;
+      }
     }
     else
-      CantCeros++;
-  }
-  if (CantCeros >= 2)
-    return 0; //Serial.print("Falla en sensor / desconectado ");
-
-  //Serial.println(CantCeros);
-
-  promedio = sum / cant;
-  //Serial.println(promedio);
-  return promedio;
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirHumedad()
-{
-  return dht.readHumidity(); //Se lee la humedad del aire.
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirTemperatura()
-{
-  return dht.readTemperature(); //Se lee la temperatura del aire.
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirTemperaturaAgua()
-{
-  sensorDS18B20.requestTemperatures();
-  return sensorDS18B20.getTempCByIndex(0); //Se lee la temperatura del agua.
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirPH()
-{
-  apagarCE();
-  encenderPH();
-  delay(500);
-  int measure = analogRead(pinPH); //Se lee el pH.
-  //si es 0 esta conectado pero apagado.
-  //SERIAL_PRINT("pinPH:",measure);
-  if (measure == 0)
-    return 0.0;
-  double voltage = 5 / 1024.0 * measure;
-  apagarPH();
-  return 7 + ((2.5 - voltage) / 0.18);
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirCE()
-{
-  apagarPH();
-  encenderCE();
-  delay(500);
-  int sensorValue = 0;
-  int outputValue = 0;
-  sensorValue = analogRead(pinCE);
-  //SERIAL_PRINT("pinCE:",sensorValue);
-  outputValue = map(sensorValue, 0, 1023, 0, 5000);
-  //SERIAL_PRINT("outputValue:",outputValue);
-  apagarCE();
-  return sensorValue * 5.00 / 1024;
-}
-//---------------------------------------------------------------------------------------------------------------//
-float medirCO2()
-{
-  return gasSensor.getPPM(); //Se mide el co2.
-  //float rzero = gasSensor.getRZero();//Se mide el rzero para calibrar el co2.
-  //    Serial.println(":::::rzero ");
-  //    Serial.println(rzero);
-}
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** FUNCIONES de medición >
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** < FUNCIONES de control
-//---------------------------------------------------------------------------------------------------------------//
-bool analizarAire()
-{
-  CMD_VENTILAR = false;
-
-  //------------------------------------------------------- Humedad
-  medicionHumedad = medirHumedad();
-  ERR_MEDICION_HUMEDAD = false;
-  if (medicionHumedad == -10000)
-  {
-    medicionHumedad = 0.0;
-    ERR_MEDICION_HUMEDAD = true;
-    //return false;
-  }
-  else if (medicionHumedad < humedadMinParametro || medicionHumedad > humedadMaxParametro)
-  { //Se requiere alguna accion.
-    //encenderVentiladores();
-    CMD_VENTILAR = true;
-  }
-
-  //-------------------------------------------------------TMP
-  medicionTemperaturaAire = medirTemperatura();
-  ERR_MEDICION_TEMPERATURA = false;
-  if (medicionTemperaturaAire == -10000)
-  {
-    medicionTemperaturaAire = 0.0;
-    ERR_MEDICION_TEMPERATURA = true;
-    //return false;
-  }
-  else if (medicionTemperaturaAire < temperaturaAireMinParametro || medicionTemperaturaAire > temperaturaAireMaxParametro)
-  { //Se requiere alguna accion.
-    //encenderVentiladores();
-    CMD_VENTILAR = true;
-  }
-
-  //-------------------------------------------------------CO2
-  medicionCO2 = medirCO2();
-  ERR_MEDICION_CO2 = false;
-  if (medicionCO2 > 10000)
-  {
-    medicionCO2 = 0.0;
-    ERR_MEDICION_CO2 = true;
-    //return false;
-  }
-  else if (medicionCO2 < co2MinParametro || medicionCO2 > co2MaxParametro)
-  { //Se requiere alguna accion.
-    //encenderVentiladores();
-    CMD_VENTILAR = true;
-  }
-  if (ERR_MEDICION_HUMEDAD || ERR_MEDICION_TEMPERATURA || ERR_MEDICION_CO2)
-    return false;
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool analizarAgua()
-{
-  //-------------------------------------------------------TMP
-  medicionTemperaturaAgua = medirTemperaturaAgua();
-  ERR_MEDICION_TEMPERATURA_AGUA = false;
-  if (medicionTemperaturaAgua < -100)
-  {
-    medicionTemperaturaAgua = 0.0;
-    ERR_MEDICION_TEMPERATURA_AGUA = true;
-    //return false;
-  }
-  else if (medicionTemperaturaAgua < temperaturaAguaMinParametro || medicionTemperaturaAgua > temperaturaAguaMaxParametro)
-  { //Se requiere alguna accion.
-    //encenderEnfriador();
-    if (medicionTemperaturaAgua < temperaturaAguaMinParametro)
-    { //Bajar temperatura.
-      CMD_BAJAR_TEMPERATURA_AGUA = true;
+    { //No hace nada.
+      CMD_BAJAR_TEMPERATURA_AGUA = false;
       CMD_SUBIR_TEMPERATURA_AGUA = false;
     }
-    else if (medicionTemperaturaAgua > temperaturaAguaMaxParametro)
-    { //Subir temperaruta.
-      CMD_BAJAR_TEMPERATURA_AGUA = false;
-      CMD_SUBIR_TEMPERATURA_AGUA = true;
-    }
-  }
-  else
-  { //No hace nada.
-    CMD_BAJAR_TEMPERATURA_AGUA = false;
-    CMD_SUBIR_TEMPERATURA_AGUA = false;
-  }
 
-  //-------------------------------------------------------PH
-  medicionPH = medirPH();
-  ERR_MEDICION_PH = false;
-  if (medicionPH == 0)
-  { //Sensor desconectado o apagado.
-    medicionPH = 0.0;
-    ERR_MEDICION_PH = true;
-    //return false;
-  }
-  else if (medicionPH < 0)
-  { //Sonda desconectada.
-    medicionPH = 0.0;
-    ERR_MEDICION_PH = true;
-    //return false;
-  }
-  else if (medicionPH < PHminParametro || medicionPH > PHmaxParametro)
-  { //Se requiere alguna accion.
-    if (medicionPH < PHminParametro)
-    {
-      //encenderPHmas();
-      CMD_SUBIR_PH = true;
+    //-------------------------------------------------------PH
+    medicionPH = medirPH();
+    ERR_MEDICION_PH = false;
+    if (medicionPH == 0)
+    { //Sensor desconectado o apagado.
+      medicionPH = 0.0;
+      ERR_MEDICION_PH = true;
+      //return false;
+    }
+    else if (medicionPH < 0)
+    { //Sonda desconectada.
+      medicionPH = 0.0;
+      ERR_MEDICION_PH = true;
+      //return false;
+    }
+    else if (medicionPH < PHminParametro || medicionPH > PHmaxParametro)
+    { //Se requiere alguna accion.
+      if (medicionPH < PHminParametro)
+      {
+        //encenderPHmas();
+        CMD_SUBIR_PH = true;
+        CMD_BAJAR_PH = false;
+      }
+      else if (medicionPH > PHmaxParametro)
+      {
+        //encenderPHmenos();
+        CMD_SUBIR_PH = false;
+        CMD_BAJAR_PH = true;
+      }
+    }
+    else
+    { //No hace nada.
+      CMD_SUBIR_PH = false;
       CMD_BAJAR_PH = false;
     }
-    else if (medicionPH > PHmaxParametro)
-    {
-      //encenderPHmenos();
-      CMD_SUBIR_PH = false;
-      CMD_BAJAR_PH = true;
-    }
-  }
-  else
-  { //No hace nada.
-    CMD_SUBIR_PH = false;
-    CMD_BAJAR_PH = false;
-  }
 
-  //-------------------------------------------------------CE
-  medicionCE = medirCE();
-  ERR_MEDICION_CE = false;
-  if (medicionCE == 0)
-  { //Sensor desconectado o apagado.
-    medicionCE = 0.0;
-    ERR_MEDICION_CE = true;
-    //return false;
-  }
-  else if (medicionCE < ceMinParametro || medicionCE > ceMaxParametro)
-  { //Se requiere alguna accion.
-    if (medicionCE < ceMinParametro)
-    {
-      //encenderPHmas();
-      CMD_ADD_NUTRIENTE_A = true;
-      CMD_ADD_NUTRIENTE_B = true;
-      CMD_ADD_AGUA = false;
+    //-------------------------------------------------------CE
+    medicionCE = medirCE();
+    ERR_MEDICION_CE = false;
+    if (medicionCE == 0)
+    { //Sensor desconectado o apagado.
+      medicionCE = 0.0;
+      ERR_MEDICION_CE = true;
+      //return false;
     }
-    else if (medicionPH > ceMaxParametro)
-    {
-      //encenderPHmenos();
+    else if (medicionCE < ceMinParametro || medicionCE > ceMaxParametro)
+    { //Se requiere alguna accion.
+      if (medicionCE < ceMinParametro)
+      {
+        //encenderPHmas();
+        CMD_ADD_NUTRIENTE_A = true;
+        CMD_ADD_NUTRIENTE_B = true;
+        CMD_ADD_AGUA = false;
+      }
+      else if (medicionPH > ceMaxParametro)
+      {
+        //encenderPHmenos();
+        CMD_ADD_NUTRIENTE_A = false;
+        CMD_ADD_NUTRIENTE_B = false;
+        CMD_ADD_AGUA = true;
+      }
+    }
+    else
+    { //No hace nada.
       CMD_ADD_NUTRIENTE_A = false;
       CMD_ADD_NUTRIENTE_B = false;
-      CMD_ADD_AGUA = true;
+      CMD_ADD_AGUA = false;
     }
-  }
-  else
-  { //No hace nada.
-    CMD_ADD_NUTRIENTE_A = false;
-    CMD_ADD_NUTRIENTE_B = false;
-    CMD_ADD_AGUA = false;
-  }
 
-  if (ERR_MEDICION_TEMPERATURA_AGUA || ERR_MEDICION_PH || ERR_MEDICION_CE)
-    return false;
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool controlarNivelesPH()
-{
-  //------------------------------------------------------- PH+
-  ERR_MEDICION_NIVEL_PH_MAS = false;
-  ALT_MINIMO_PH_MAS = false;
-  medicionNivelPHmas = medirNivelLiquido("medicionNivelPHmas");
-  if (medicionNivelPHmas == 0)
-  {
-    ERR_MEDICION_NIVEL_PH_MAS = true;
-    //return false;
+    encenderBombaPrincipal();
+    if (ERR_MEDICION_TEMPERATURA_AGUA || ERR_MEDICION_PH || ERR_MEDICION_CE)
+      return false;
+    return true;
   }
-  else if (medicionNivelPHmas < minimoNivelPHmas)
+  //---------------------------------------------------------------------------------------------------------------//
+  bool controlarNivelesPH()
   {
-    ALT_MINIMO_PH_MAS = true;
-  }
+    //------------------------------------------------------- PH+
+    ERR_MEDICION_NIVEL_PH_MAS = false;
+    ALT_MINIMO_PH_MAS = false;
+    medicionNivelPHmas = medirNivelLiquido("medicionNivelPHmas");
+    if (medicionNivelPHmas == 0)
+    {
+      ERR_MEDICION_NIVEL_PH_MAS = true;
+      //return false;
+    }
+    else if (medicionNivelPHmas < minimoNivelPHmas)
+    {
+      ALT_MINIMO_PH_MAS = true;
+    }
 
-  //------------------------------------------------------- PH-
-  ERR_MEDICION_NIVEL_PH_MEN = false;
-  ALT_MINIMO_PH_MEN = false;
-  medicionNivelPHmenos = medirNivelLiquido("medicionNivelPHmenos");
-  if (medicionNivelPHmenos == 0)
-  {
-    ERR_MEDICION_NIVEL_PH_MEN = true;
-    //return false;
-  }
-  else if (medicionNivelPHmenos < minimoNivelPHmenos)
-  {
-    ALT_MINIMO_PH_MEN = true;
-  }
+    //------------------------------------------------------- PH-
+    ERR_MEDICION_NIVEL_PH_MEN = false;
+    ALT_MINIMO_PH_MEN = false;
+    medicionNivelPHmenos = medirNivelLiquido("medicionNivelPHmenos");
+    if (medicionNivelPHmenos == 0)
+    {
+      ERR_MEDICION_NIVEL_PH_MEN = true;
+      //return false;
+    }
+    else if (medicionNivelPHmenos < minimoNivelPHmenos)
+    {
+      ALT_MINIMO_PH_MEN = true;
+    }
 
-  if (ERR_MEDICION_NIVEL_PH_MAS || ERR_MEDICION_NIVEL_PH_MEN)
-    return false;
+    if (ERR_MEDICION_NIVEL_PH_MAS || ERR_MEDICION_NIVEL_PH_MEN)
+      return false;
 
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool controlarNivelesNutrintes()
-{
-  //------------------------------------------------------- Nut A
-  ERR_MEDICION_NIVEL_NUT_A = false;
-  ALT_MINIMO_NUT_A = false;
-  medicionNivelNutrienteA = medirNivel("medicionNivelNutrienteA");
-  if (medicionNivelNutrienteA == 0)
-  {
-    ERR_MEDICION_NIVEL_NUT_A = true;
-    //return false;
+    return true;
   }
-  else if (medicionNivelNutrienteA > minimoNivelNutrienteA)
+  //---------------------------------------------------------------------------------------------------------------//
+  bool controlarNivelesNutrintes()
   {
-    ALT_MINIMO_NUT_A = true;
-  }
+    //------------------------------------------------------- Nut A
+    ERR_MEDICION_NIVEL_NUT_A = false;
+    ALT_MINIMO_NUT_A = false;
+    medicionNivelNutrienteA = medirNivel("medicionNivelNutrienteA");
+    if (medicionNivelNutrienteA == 0)
+    {
+      ERR_MEDICION_NIVEL_NUT_A = true;
+      //return false;
+    }
+    else if (medicionNivelNutrienteA > minimoNivelNutrienteA)
+    {
+      ALT_MINIMO_NUT_A = true;
+    }
 
-  //------------------------------------------------------- Nut B
-  ERR_MEDICION_NIVEL_NUT_B = false;
-  ALT_MINIMO_NUT_B = false;
-  medicionNivelNutrienteB = medirNivel("medicionNivelNutrienteB");
-  if (medicionNivelNutrienteB == 0)
-  {
-    ERR_MEDICION_NIVEL_NUT_B = true;
-    //return false;
-  }
-  else if (medicionNivelNutrienteB > minimoNivelNutrienteB)
-  {
-    ALT_MINIMO_NUT_B = true;
-  }
-  if (ERR_MEDICION_NIVEL_NUT_A || ERR_MEDICION_NIVEL_NUT_B)
-    return false;
+    //------------------------------------------------------- Nut B
+    ERR_MEDICION_NIVEL_NUT_B = false;
+    ALT_MINIMO_NUT_B = false;
+    medicionNivelNutrienteB = medirNivel("medicionNivelNutrienteB");
+    if (medicionNivelNutrienteB == 0)
+    {
+      ERR_MEDICION_NIVEL_NUT_B = true;
+      //return false;
+    }
+    else if (medicionNivelNutrienteB > minimoNivelNutrienteB)
+    {
+      ALT_MINIMO_NUT_B = true;
+    }
+    if (ERR_MEDICION_NIVEL_NUT_A || ERR_MEDICION_NIVEL_NUT_B)
+      return false;
 
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool controlarNivelesTanques()
-{
-  //------------------------------------------------------- Agua limpia
-  /*  ERR_MEDICION_NIVEL_LIMPIA = false;
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool controlarNivelesTanques()
+  {
+    //------------------------------------------------------- Agua limpia
+    /*  ERR_MEDICION_NIVEL_LIMPIA = false;
   medicionNivelTanqueAguaLimpia = medirNivel("medicionNivelTanqueAguaLimpia");
   if (medicionNivelTanqueAguaLimpia == 0) {
     ERR_MEDICION_NIVEL_LIMPIA = true;
@@ -1420,8 +1478,8 @@ bool controlarNivelesTanques()
     ALT_MAXIMO_LIMPIA = false;
   }*/
 
-  //------------------------------------------------------- Agua descarte
-  /*  ERR_MEDICION_NIVEL_DESCARTE = false;
+    //------------------------------------------------------- Agua descarte
+    /*  ERR_MEDICION_NIVEL_DESCARTE = false;
   medicionNivelTanqueDesechable = medirNivel("medicionNivelTanqueDesechable");
   if (medicionNivelTanqueDesechable == 0) {
     ERR_MEDICION_NIVEL_DESCARTE = true;
@@ -1438,582 +1496,664 @@ bool controlarNivelesTanques()
     ALT_MAXIMO_DESCARTE = false;
   }*/
 
-  //------------------------------------------------------- Tanque principal
-  tanqueLleno = nivelTanque("tanqueLleno");
-  tanqueMedio = nivelTanque("tanqueMedio");
-  tanqueVacio = nivelTanque("tanqueVacio");
+    //------------------------------------------------------- Tanque principal
+    tanqueLleno = nivelTanque("tanqueLleno");
+    tanqueMedio = nivelTanque("tanqueMedio");
+    tanqueVacio = nivelTanque("tanqueVacio");
 
-  ERR_MEDICION_NIVEL_PRINCIPAL = false;
-  medicionNivelTanquePrincial = medirNivel("medicionNivelTanquePrincial");
-  if (medicionNivelTanquePrincial == 0)
-  {
-    ERR_MEDICION_NIVEL_PRINCIPAL = true;
-    //return false;
-  }
-  else if (medicionNivelTanquePrincial > minimoNivelTanquePrincial)
-  {
-    ALT_MINIMO_PRINCIPAL = true;
-  }
-  else if (medicionNivelTanquePrincial < maximoNivelTanquePrincial)
-  {
-    ALT_MAXIMO_PRINCIPAL = true;
-  }
-  else
-  {
-    ALT_MINIMO_PRINCIPAL = false;
-    ALT_MAXIMO_PRINCIPAL = false;
-  }
-
-  if (ERR_MEDICION_NIVEL_PRINCIPAL) //ERR_MEDICION_NIVEL_LIMPIA || ERR_MEDICION_NIVEL_DESCARTE ||
-    return false;
-
-  if (!tanqueMedio || !tanqueVacio)
-    ALT_MINIMO_PRINCIPAL = true;
-
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** FUNCIONES de control >
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** < FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266
-//---------------------------------------------------------------------------------------------------------------//
-char *calcChecksum(const char *data, int length)
-{
-  static char checksum[SIZE_CHECKSUM];
-  int result = 0;
-
-  for (int idx = 0; idx < length; idx++)
-  {
-    result = result ^ data[idx];
-  }
-
-  if (result <= 15)
-  {
-    if (result <= 9)
+    ERR_MEDICION_NIVEL_PRINCIPAL = false;
+    medicionNivelTanquePrincial = medirNivel("medicionNivelTanquePrincial");
+    if (medicionNivelTanquePrincial == 0)
     {
-      checksum[0] = '0';
-      checksum[1] = result + 48;
-      checksum[2] = '\0';
+      ERR_MEDICION_NIVEL_PRINCIPAL = true;
+      //return false;
+    }
+    else if (medicionNivelTanquePrincial > minimoNivelTanquePrincial)
+    {
+      ALT_MINIMO_PRINCIPAL = true;
+    }
+    else if (medicionNivelTanquePrincial < maximoNivelTanquePrincial)
+    {
+      ALT_MAXIMO_PRINCIPAL = true;
     }
     else
     {
-      checksum[0] = '0';
-      checksum[1] = result + 87;
-      checksum[2] = '\0';
+      ALT_MINIMO_PRINCIPAL = false;
+      ALT_MAXIMO_PRINCIPAL = false;
     }
+
+    if (ERR_MEDICION_NIVEL_PRINCIPAL) //ERR_MEDICION_NIVEL_LIMPIA || ERR_MEDICION_NIVEL_DESCARTE ||
+      return false;
+
+    if (!tanqueMedio || !tanqueVacio)
+      ALT_MINIMO_PRINCIPAL = true;
+
+    return true;
   }
-  else
+  //---------------------------------------------------------------------------------------------------------------//
+  bool vaciarTanque()
   {
-    int rest;
-    int quotient;
-    char numHexa[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-    rest = result % 16;
-    quotient = result / 16;
+    ERR_SALIDA_AGUA_DESCARTE = false;
+    ALT_VACIADO_REALIZADO = false;
+    bool error = false;
+    encenderBombaVaciado();
+    float nivel = medirNivel("medicionNivelTanquePrincial");
+    float nivelAux = 0;
+    int intentos = 0;
+    while (!nivelTanque("tanqueVacio") || error)
+    {
+      delay(TIEMPO_LECTURA_NIVEL);
+      nivelAux = medirNivel("medicionNivelTanquePrincial");
+      if (nivel > nivelAux)
+      {
+        nivel = nivelAux;
+      }
+      else
+      {
+        intentos++;
+      }
+      if (intentos == CANTIDAD_INTENTOS)
+      {
+        error = true;
+        ERR_SALIDA_AGUA_DESCARTE = true;
+      }
+    }
+    apagarBombaVaciado();
+    if (!error)
+    {
+      ALT_VACIADO_REALIZADO = true;
+      return true;
+    }
+    return false;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool llenarTanque()
+  {
+    ERR_INGRESO_AGUA_LIMPIA = false;
+    ALT_LLENADO_REALIZADO = false;
+    bool error = false;
+    encenderLlenado();
+    float nivel = medirNivel("medicionNivelTanquePrincial");
+    float nivelAux = 0;
+    int intentos = 0;
+    while (!nivelTanque("tanqueLleno") || error)
+    {
+      delay(TIEMPO_LECTURA_NIVEL);
+      nivelAux = medirNivel("medicionNivelTanquePrincial");
+      if (nivel < nivelAux)
+      {
+        nivel = nivelAux;
+      }
+      else
+      {
+        intentos++;
+      }
+      if (intentos == CANTIDAD_INTENTOS)
+      {
+        error = true;
+        ERR_INGRESO_AGUA_LIMPIA = true;
+      }
+    }
+    apagarLlenado();
+    if (!error)
+    {
+      ALT_LLENADO_REALIZADO = true;
+      return true;
+    }
+    return false;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** FUNCIONES de control >
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** < FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266
+  //---------------------------------------------------------------------------------------------------------------//
+  char *calcChecksum(const char *data, int length)
+  {
+    static char checksum[SIZE_CHECKSUM];
+    int result = 0;
+
+    for (int idx = 0; idx < length; idx++)
+    {
+      result = result ^ data[idx];
+    }
+
+    if (result <= 15)
+    {
+      if (result <= 9)
+      {
+        checksum[0] = '0';
+        checksum[1] = result + 48;
+        checksum[2] = '\0';
+      }
+      else
+      {
+        checksum[0] = '0';
+        checksum[1] = result + 87;
+        checksum[2] = '\0';
+      }
+    }
+    else
+    {
+      int rest;
+      int quotient;
+      char numHexa[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+      rest = result % 16;
+      quotient = result / 16;
+      checksum[2] = '\0';
+      checksum[1] = numHexa[rest];
+      checksum[0] = numHexa[quotient];
+    }
+    return checksum;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  char *preparePackage(const char *payLoad, int length)
+  {
+    char checksum[SIZE_CHECKSUM];
+    memcpy(checksum, calcChecksum(payLoad, length), 3 * sizeof(char));
     checksum[2] = '\0';
-    checksum[1] = numHexa[rest];
-    checksum[0] = numHexa[quotient];
+    static char package[SIZE_PACKAGE];
+    snprintf(package, sizeof(package), PACKAGE_FORMAT, START_CHARACTER, DELIMITER_CHARACTER, payLoad, DELIMITER_CHARACTER, checksum, DELIMITER_CHARACTER, END_CHARACTER);
+    return package;
   }
-  return checksum;
-}
-//---------------------------------------------------------------------------------------------------------------//
-char *preparePackage(const char *payLoad, int length)
-{
-  char checksum[SIZE_CHECKSUM];
-  memcpy(checksum, calcChecksum(payLoad, length), 3 * sizeof(char));
-  checksum[2] = '\0';
-  static char package[SIZE_PACKAGE];
-  snprintf(package, sizeof(package), PACKAGE_FORMAT, START_CHARACTER, DELIMITER_CHARACTER, payLoad, DELIMITER_CHARACTER, checksum, DELIMITER_CHARACTER, END_CHARACTER);
-  return package;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool compareChecksum(const char *checksumA, const char *checksumB)
-{
-  bool result = true;
-
-  for (int idx = 0; idx < SIZE_CHECKSUM; idx++)
+  //---------------------------------------------------------------------------------------------------------------//
+  bool compareChecksum(const char *checksumA, const char *checksumB)
   {
-    if (checksumA[idx] != checksumB[idx])
+    bool result = true;
+
+    for (int idx = 0; idx < SIZE_CHECKSUM; idx++)
     {
-      result = false;
-    }
-  }
-  return result;
-}
-//---------------------------------------------------------------------------------------------------------------//
-char *getChecksumFromReceivedPackage(const char *package, int length)
-{
-  static char checksum[SIZE_CHECKSUM];
-  byte countDelimiterCharacter = 0;
-
-  int index = 0;
-  bool findOK = false;
-  for (; index < length; index++)
-  {
-    if (package[index] == END_CHARACTER)
-    {
-      findOK = true;
-      break;
-    }
-  }
-
-  if (!findOK)
-  {
-    return NULL;
-  }
-
-  index -= 3;
-  for (int idx = 0; idx < SIZE_CHECKSUM - 1; idx++)
-  {
-    checksum[idx] = package[index + idx];
-  }
-  checksum[2] = '\0';
-  return checksum;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool validatePackage(const char *package, int length)
-{
-  return compareChecksum(getChecksumFromReceivedPackage(package, length), calcChecksum(package + 2, length - 7));
-  // + 2 para saltearme el start_character y el -7 es (caracter de inicio + primer delimitador + 1 delimitador antes del checksum +  2 caracteres del checksum + ultimo delimitador
-  // + caracter de fin.
-}
-//---------------------------------------------------------------------------------------------------------------//
-char *disarmPackage(const char *package, int length)
-{
-  static char payLoad[SIZE_PAYLOAD];
-  memcpy(payLoad, package + 2, (length - 7) * sizeof(char)); // +3 para salterame el caracter inicial(1) + primer delimitador(1); -7 para no copiar caracter de inicio
-  // de paquete(1), primer delimitador(1), delimitador antes del checksum(1) el checksum(2) el limitador despues del checksum(1) y el caracter de fin de paquete(1).
-  payLoad[length - 7] = '\0';
-  return payLoad;
-}
-//---------------------------------------------------------------------------------------------------------------//
-int disarmPayLoad(const char *payLoad, int length, char *data)
-{
-  char command[3];
-  memcpy(command, payLoad, 2 * sizeof(char));
-  command[2] = '\0';
-
-  int cmd = atoi(command);
-  if (cmd > 0 && cmd < 100)
-  {
-    //if (cmd == 6) {  // unico comando proveniente desde la raspberry con datos;
-    memcpy(data, payLoad + 3, (length - 2) * sizeof(char));
-    data[length - 2] = '\0';
-    // }
-    return cmd;
-  }
-  return ERROR_CODE; //retCode error;
-}
-//---------------------------------------------------------------------------------------------------------------//
-int proccesPackage(String package, int length, char *data)
-{
-  SERIAL_PRINT("\n> Recieved Package: ", package);
-  char recievedPack[SIZE_PACKAGE];
-  char payLoad[SIZE_PAYLOAD];
-  package.toCharArray(recievedPack, sizeof(recievedPack));
-  if (validatePackage(recievedPack, strlen(recievedPack)))
-  {
-    SERIAL_PRINT("> Checksum valid!!", "");
-    strcpy(payLoad, disarmPackage(recievedPack, strlen(recievedPack)));
-    SERIAL_PRINT("> PayLoad Disarmed: ", payLoad);
-
-    int command = disarmPayLoad(payLoad, strlen(payLoad), data);
-    if (command != -1)
-    {
-      SERIAL_PRINT("> Command: ", command);
-      SERIAL_PRINT("> Data: ", data);
-      return command;
-    }
-    else
-    {
-      return ERROR_CODE;
-    }
-  }
-  else
-  {
-    return ERROR_BAD_CHECKSUM;
-  }
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool checkPackageComplete(const char *com)
-{
-  char data[50];
-  int retCmd = proccesPackage(receivedPackage, receivedPackage.length(), data);
-
-  if (retCmd == ERROR_CODE)
-  {
-    SERIAL_PRINT("> Error, comando desconocido !!", "");
-    return false;
-  }
-  else if (retCmd == ERROR_BAD_CHECKSUM)
-  {
-    SERIAL_PRINT("> Error de checksum !!", "");
-    return false;
-  }
-  else
-  {
-    StaticJsonBuffer<100> jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject(data);
-    if (0 < retCmd && 16 > retCmd)
-    {
-      if (strcmp(com, root["OK"]) != 0)
+      if (checksumA[idx] != checksumB[idx])
       {
-        SERIAL_PRINT("ER", "Paquete no esperado");
-        return false;
+        result = false;
+      }
+    }
+    return result;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  char *getChecksumFromReceivedPackage(const char *package, int length)
+  {
+    static char checksum[SIZE_CHECKSUM];
+    byte countDelimiterCharacter = 0;
+
+    int index = 0;
+    bool findOK = false;
+    for (; index < length; index++)
+    {
+      if (package[index] == END_CHARACTER)
+      {
+        findOK = true;
+        break;
+      }
+    }
+
+    if (!findOK)
+    {
+      return NULL;
+    }
+
+    index -= 3;
+    for (int idx = 0; idx < SIZE_CHECKSUM - 1; idx++)
+    {
+      checksum[idx] = package[index + idx];
+    }
+    checksum[2] = '\0';
+    return checksum;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool validatePackage(const char *package, int length)
+  {
+    return compareChecksum(getChecksumFromReceivedPackage(package, length), calcChecksum(package + 2, length - 7));
+    // + 2 para saltearme el start_character y el -7 es (caracter de inicio + primer delimitador + 1 delimitador antes del checksum +  2 caracteres del checksum + ultimo delimitador
+    // + caracter de fin.
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  char *disarmPackage(const char *package, int length)
+  {
+    static char payLoad[SIZE_PAYLOAD];
+    memcpy(payLoad, package + 2, (length - 7) * sizeof(char)); // +3 para salterame el caracter inicial(1) + primer delimitador(1); -7 para no copiar caracter de inicio
+    // de paquete(1), primer delimitador(1), delimitador antes del checksum(1) el checksum(2) el limitador despues del checksum(1) y el caracter de fin de paquete(1).
+    payLoad[length - 7] = '\0';
+    return payLoad;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  int disarmPayLoad(const char *payLoad, int length, char *data)
+  {
+    char command[3];
+    memcpy(command, payLoad, 2 * sizeof(char));
+    command[2] = '\0';
+
+    int cmd = atoi(command);
+    if (cmd > 0 && cmd < 100)
+    {
+      //if (cmd == 6) {  // unico comando proveniente desde la raspberry con datos;
+      memcpy(data, payLoad + 3, (length - 2) * sizeof(char));
+      data[length - 2] = '\0';
+      // }
+      return cmd;
+    }
+    return ERROR_CODE; //retCode error;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  int proccesPackage(String package, int length, char *data)
+  {
+    SERIAL_PRINT("\n> Recieved Package: ", package);
+    char recievedPack[SIZE_PACKAGE];
+    char payLoad[SIZE_PAYLOAD];
+    package.toCharArray(recievedPack, sizeof(recievedPack));
+    if (validatePackage(recievedPack, strlen(recievedPack)))
+    {
+      SERIAL_PRINT("> Checksum valid!!", "");
+      strcpy(payLoad, disarmPackage(recievedPack, strlen(recievedPack)));
+      SERIAL_PRINT("> PayLoad Disarmed: ", payLoad);
+
+      int command = disarmPayLoad(payLoad, strlen(payLoad), data);
+      if (command != -1)
+      {
+        SERIAL_PRINT("> Command: ", command);
+        SERIAL_PRINT("> Data: ", data);
+        return command;
+      }
+      else
+      {
+        return ERROR_CODE;
       }
     }
     else
     {
-      if (atoi(com) != retCmd && (retCmd != 99 && retCmd != 98))
+      return ERROR_BAD_CHECKSUM;
+    }
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool checkPackageComplete(const char *com)
+  {
+    char data[50];
+    int retCmd = proccesPackage(receivedPackage, receivedPackage.length(), data);
+
+    if (retCmd == ERROR_CODE)
+    {
+      SERIAL_PRINT("> Error, comando desconocido !!", "");
+      return false;
+    }
+    else if (retCmd == ERROR_BAD_CHECKSUM)
+    {
+      SERIAL_PRINT("> Error de checksum !!", "");
+      return false;
+    }
+    else
+    {
+      StaticJsonBuffer<100> jsonBuffer;
+      JsonObject &root = jsonBuffer.parseObject(data);
+      if (0 < retCmd && 16 > retCmd)
       {
-        SERIAL_PRINT("ER", "Paquete no esperado");
+        if (strcmp(com, root["OK"]) != 0)
+        {
+          SERIAL_PRINT("ER", "Paquete no esperado");
+          return false;
+        }
+      }
+      else
+      {
+        if (atoi(com) != retCmd && (retCmd != 99 && retCmd != 98))
+        {
+          SERIAL_PRINT("ER", "Paquete no esperado");
+          return false;
+        }
+      }
+
+      switch (retCmd)
+      {
+      case 16:
+        hsLuzParametro = root["HorasLuz"];
+        SERIAL_PRINT("HorasLuz ", hsLuzParametro);
+        break;
+      case 17:
+        horaInicioLuz = root["HoraIniLuz"];
+        SERIAL_PRINT("HoraIniLuz", horaInicioLuz);
+        break;
+      case 18:
+        PhParametro = root["pHaceptable"];
+        SERIAL_PRINT("pHaceptable", PhParametro);
+        break;
+      case 19:
+        if (root["pwr"] == 1)
+          CMD_SISTEMA_ENCENDIDO = true;
+        else
+          CMD_SISTEMA_ENCENDIDO = false;
+        SERIAL_PRINT("pwr", CMD_SISTEMA_ENCENDIDO);
+        break;
+      case 20:
+        if (root["Vaciado"] == 1)
+          CMD_VACIAR_AGUA = true;
+        else
+          CMD_VACIAR_AGUA = false;
+        SERIAL_PRINT("Vaciado", CMD_VACIAR_AGUA);
+        break;
+      case 98:
+        SERIAL_PRINT("BS", "BUSY");
+        return false;
+        break;
+      case 99:
+        SERIAL_PRINT("ER", "ERROR");
+        return false;
+        break;
+      default:
+        SERIAL_PRINT("OK ", retCmd);
+        break;
+      }
+    }
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** < FUNCIONES para la generacion de alertas
+  //---------------------------------------------------------------------------------------------------------------//
+  String floatTOstring(float x) //Convertir de float a String
+  {
+    return String(x);
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  String intTOstring(int x) //Convertir de int a String
+  {
+    return String(x);
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  String completarLargo(String x, int largo, int lado) // lado: 1 Derecha 2 Izquierda. ** Completar el largo con 000000
+  {
+    //  SERIAL_PRINT("x: ", x);
+    //  SERIAL_PRINT("length: ", x.length());
+
+    if (x.length() < largo)
+    {
+      for (int i = 0; i <= largo - x.length(); i++)
+        if (lado == 1)
+          x = "0" + x;
+        else
+          x = x + "0";
+    }
+    //  SERIAL_PRINT("x2: ", x);
+    return x;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  int nivelTOporcentaje(float x, float techo, float piso) //Convertir la medicion de nivel en un %
+  {
+    float aux = mapf(x, piso, techo, -1, 99);
+    aux = (aux > 99 ? 99 : aux);
+    aux = (aux < -1 ? -1 : aux);
+
+    return (int)aux;
+  }
+  double mapf(double val, double in_min, double in_max, double out_min, double out_max)
+  {
+    return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  String generarArrayAlertas()
+  { //Se genera un array con todas las alertas existentes 0=false 1=true
+
+    String aux = "";
+
+    aux += ALT_MINIMO_PH_MAS ? "1" : "0";
+    aux += ALT_MINIMO_PH_MEN ? "1" : "0";
+    aux += ALT_MINIMO_NUT_A ? "1" : "0";
+    aux += ALT_MINIMO_NUT_B ? "1" : "0";
+    aux += ALT_MINIMO_PRINCIPAL ? "1" : "0";
+    aux += ALT_MAXIMO_PRINCIPAL ? "1" : "0";
+    // aux += ALT_MINIMO_LIMPIA ? "1" : "0";
+    // aux += ALT_MAXIMO_DESCARTE ? "1" : "0";
+    aux += ALT_RTC_DESCONFIGURADO ? "1" : "0";
+    aux += ALT_RTC_DESCONECTADO ? "1" : "0";
+
+    //  aux += ALT_MAXIMO_LIMPIA ? "1" : "0";
+    //  aux += ALT_MINIMO_DESCARTE ? "1" : "0";
+
+    return aux;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  String generarArrayErrores()
+  { //Se genera un array con todas los errores existentes 0=false 1=true
+
+    String aux = "";
+    aux += ERR_MEDICION_PH ? "1" : "0";
+    aux += ERR_MEDICION_CE ? "1" : "0";
+    aux += ERR_MEDICION_HUMEDAD ? "1" : "0";
+    aux += ERR_MEDICION_TEMPERATURA ? "1" : "0";
+    aux += ERR_MEDICION_CO2 ? "1" : "0";
+    aux += ERR_MEDICION_NIVEL_PH_MAS ? "1" : "0";
+    aux += ERR_MEDICION_NIVEL_PH_MEN ? "1" : "0";
+    aux += ERR_MEDICION_NIVEL_NUT_A ? "1" : "0";
+    aux += ERR_MEDICION_NIVEL_NUT_B ? "1" : "0";
+    aux += ERR_MEDICION_NIVEL_PRINCIPAL ? "1" : "0";
+    // aux += ERR_MEDICION_NIVEL_LIMPIA ? "1" : "0";
+    // aux += ERR_MEDICION_NIVEL_DESCARTE ? "1" : "0";
+    aux += ERR_MEDICION_TEMPERATURA_AGUA ? "1" : "0";
+    aux += ERR_ENVIO_INFORMACION ? "1" : "0";
+
+    return aux;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool generarJson()
+  {
+    String auxArray = generarArrayAlertas();
+    String auxArray2 = generarArrayErrores();
+
+    //crear Json
+    StaticJsonBuffer<290> jsonBuffer;
+    JsonObject &json = jsonBuffer.createObject();
+    json["HumedadAire"] = completarLargo(floatTOstring(medicionHumedad), 5, 1);
+    json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 8, 1);
+    json["TemperaturaAire"] = completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1);
+    json["TemperaturaAguaTanquePrincipal"] = completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1);
+    json["MedicionPH"] = completarLargo(floatTOstring(medicionPH), 6, 1);
+    json["MedicionCE"] = completarLargo(floatTOstring(medicionCE), 6, 1);
+    json["NivelTanquePrincipal"] = intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal));
+    // json["NivelTanqueLimpia"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia));
+    // json["NivelTanqueDescarte"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada));
+    json["NivelPhMas"] = intTOstring(medicionNivelPHmas);
+    json["NivelPhMenos"] = intTOstring(medicionNivelPHmenos);
+    json["NivelNutrienteA"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA));
+    json["NivelNutrienteB"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB));
+    json["Alertas"] = auxArray;
+    json["Errores"] = auxArray2;
+
+    json.prettyPrintTo(Serial);
+
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool enviarInformacion()
+  {
+    String auxArray = generarArrayAlertas();
+    String auxArray2 = generarArrayErrores();
+    contadorRechazos = 0;
+    ERR_ENVIO_INFORMACION = false;
+    for (int i = 1; i <= 20; i++)
+    {
+      bool resultado = false;
+      SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii: ", i);
+      switch (i)
+      {
+      case 1:
+        resultado = sendPackage("HumAire", i, completarLargo(floatTOstring(medicionHumedad), 5, 1));
+        break;
+      case 2:
+        resultado = sendPackage("CO2", i, completarLargo(floatTOstring(medicionCO2), 8, 1));
+        break;
+      case 3:
+        resultado = sendPackage("TempAire", i, completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1));
+        break;
+      case 4:
+        resultado = sendPackage("TempAgua", i, completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1));
+        break;
+      case 5:
+        resultado = sendPackage("PH", i, completarLargo(floatTOstring(medicionPH), 6, 1));
+        break;
+      case 6:
+        resultado = sendPackage("CE", i, completarLargo(floatTOstring(medicionCE), 6, 1));
+        break;
+      case 7:
+        resultado = sendPackage("NivelTanqueP", i, intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal)));
+        break;
+      case 8:
+        //     resultado=sendPackage("NivelTanqueL", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia)));
+        resultado = true;
+        break;
+      case 9:
+        //   resultado=sendPackage("NivelTanqueD", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada)));
+        resultado = true;
+        break;
+      case 10:
+        resultado = sendPackage("NivelPh+", i, intTOstring(medicionNivelPHmas));
+        break;
+      case 11:
+        resultado = sendPackage("NivelPh-", i, intTOstring(medicionNivelPHmenos));
+        break;
+      case 12:
+        resultado = sendPackage("NivelNutA", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA)));
+        break;
+      case 13:
+        resultado = sendPackage("NivelNutB", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB)));
+        break;
+      case 14:
+        resultado = sendPackage("A", i, auxArray);
+        break;
+      case 15:
+        resultado = sendPackage("E", i, auxArray2);
+        break;
+      case 16:
+        resultado = sendPackage("HsL", i, "16");
+        break;
+      case 17:
+        resultado = sendPackage("HiL", i, "17");
+        break;
+      case 18:
+        resultado = sendPackage("phA", i, "18");
+        break;
+      case 19:
+        resultado = sendPackage("pwr", i, "19");
+        break;
+      case 20:
+        resultado = sendPackage("Vaciado", i, "20");
+        break;
+      }
+
+      if (!resultado)
+      {
+        contadorRechazos++;
+        i--;
+      }
+      else
+      {
+        contadorRechazos = 0;
+      }
+
+      if (contadorRechazos > RECHAZOS_MAXIMOS)
+      {
+        ERR_ENVIO_INFORMACION = true;
         return false;
       }
     }
+    return true;
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool sendPackage(String nombre, int cmd, String valor)
+  {
+    delay(10);
+    char command[3];
+    completarLargo(intTOstring(cmd), 2, 1).toCharArray(command, 3);
+    char payLoad[25];
+    char package[32];
+    char aux[22];
 
-    switch (retCmd)
-    {
-    case 16:
-      hsLuzParametro = root["HorasLuz"];
-      SERIAL_PRINT("HorasLuz ", hsLuzParametro);
-      break;
-    case 17:
-      horaInicioLuz = root["HoraIniLuz"];
-      SERIAL_PRINT("HoraIniLuz", horaInicioLuz);
-      break;
-    case 18:
-      PhParametro = root["pHaceptable"];
-      SERIAL_PRINT("pHaceptable", PhParametro);
-      break;
-    case 19:
-      if (root["pwr"] == 1)
-        CMD_SISTEMA_ENCENDIDO = true;
+    parameterToJson(nombre, valor).toCharArray(aux, 22);
+
+    snprintf(payLoad, sizeof(payLoad), "%s%c%s", command, (char)DELIMITER_CHARACTER, aux);
+    strcpy(package, preparePackage(payLoad, strlen(payLoad)));
+    Serial.println(package);
+
+    return send(package, command);
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  String parameterToJson(String nombre, String valor)
+  {
+    return "{\"" + nombre + "\":\"" + valor + "\"}";
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool send(const char *message, const char *com)
+  {
+    delay(10);
+    receivedPackage = "";
+
+    SERIAL_PRINT("Envio: ", message);
+    esp.writeData(message);
+    delay(25);
+    receivedPackage = esp.readData();
+    SERIAL_PRINT("Recibo: ", receivedPackage);
+    Serial.println();
+
+    return checkPackageComplete(com);
+
+    //SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV16, MSBFIRST, SPI_MODE3));
+    //SPI.endTransaction ();
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  bool generarAlerta(String mensaje)
+  {
+    Serial.println(mensaje);
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** FUNCIONES para la generacion de alertas >
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** < FUNCIONES para el reloj RTC
+  //---------------------------------------------------------------------------------------------------------------//
+  void digitalClockDisplay()
+  {
+    // digital clock display of the time
+    Serial.print(hour());
+    printDigits(minute());
+    printDigits(second());
+    Serial.println();
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  void printDigits(int digits)
+  {
+    Serial.print(":");
+    if (digits < 10)
+      Serial.print('0');
+    Serial.print(digits);
+  }
+  //---------------------------------------------------------------------------------------------------------------//
+  int ajustarHoras(int x)
+  {
+    if (x >= 24)
+    {              //si la cuenta supero las 24hs
+      if (x == 24) //si son 24 lo paso a 00hs
+        return 0;
       else
-        CMD_SISTEMA_ENCENDIDO = false;
-      SERIAL_PRINT("pwr", CMD_SISTEMA_ENCENDIDO);
-      break;
-    case 98:
-      SERIAL_PRINT("BS", "BUSY");
-      return false;
-      break;
-    case 99:
-      SERIAL_PRINT("ER", "ERROR");
-      return false;
-      break;
-    default:
-      SERIAL_PRINT("OK ", retCmd);
-      break;
+      { //si son mas de 24hs, lo ajusto a la hora real
+        return x - 24;
+      }
     }
+    return x; //como es menor a 24 queda igual
   }
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** FUNCIONES para el protocolo de paquetes entre ARDUINO y ESP8266 >
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** < FUNCIONES para la generacion de alertas
-//---------------------------------------------------------------------------------------------------------------//
-String floatTOstring(float x) //Convertir de float a String
-{
-  return String(x);
-}
-//---------------------------------------------------------------------------------------------------------------//
-String intTOstring(int x) //Convertir de int a String
-{
-  return String(x);
-}
-//---------------------------------------------------------------------------------------------------------------//
-String completarLargo(String x, int largo, int lado) // lado: 1 Derecha 2 Izquierda. ** Completar el largo con 000000
-{
-  //  SERIAL_PRINT("x: ", x);
-  //  SERIAL_PRINT("length: ", x.length());
+  //---------------------------------------------------------------------------------------------------------------//
+  //************************************************************** FUNCIONES para el reloj RTC >
+  //---------------------------------------------------------------------------------------------------------------//
 
-  if (x.length() < largo)
+  void colorRGB(int color) //0 off, 1 Rojo, 2 Verde
   {
-    for (int i = 0; i <= largo - x.length(); i++)
-      if (lado == 1)
-        x = "0" + x;
-      else
-        x = x + "0";
-  }
-  //  SERIAL_PRINT("x2: ", x);
-  return x;
-}
-//---------------------------------------------------------------------------------------------------------------//
-int nivelTOporcentaje(float x, float techo, float piso) //Convertir la medicion de nivel en un %
-{
-  float aux = mapf(x, piso, techo, -1, 99);
-  aux = (aux > 99 ? 99 : aux);
-  aux = (aux < -1 ? -1 : aux);
-
-  return (int)aux;
-}
-double mapf(double val, double in_min, double in_max, double out_min, double out_max)
-{
-  return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-//---------------------------------------------------------------------------------------------------------------//
-String generarArrayAlertas()
-{ //Se genera un array con todas las alertas existentes 0=false 1=true
-
-  String aux = "";
-
-  aux += ALT_MINIMO_PH_MAS ? "1" : "0";
-  aux += ALT_MINIMO_PH_MEN ? "1" : "0";
-  aux += ALT_MINIMO_NUT_A ? "1" : "0";
-  aux += ALT_MINIMO_NUT_B ? "1" : "0";
-  aux += ALT_MINIMO_PRINCIPAL ? "1" : "0";
-  aux += ALT_MAXIMO_PRINCIPAL ? "1" : "0";
-  // aux += ALT_MINIMO_LIMPIA ? "1" : "0";
-  // aux += ALT_MAXIMO_DESCARTE ? "1" : "0";
-  aux += ALT_RTC_DESCONFIGURADO ? "1" : "0";
-  aux += ALT_RTC_DESCONECTADO ? "1" : "0";
-
-  //  aux += ALT_MAXIMO_LIMPIA ? "1" : "0";
-  //  aux += ALT_MINIMO_DESCARTE ? "1" : "0";
-
-  return aux;
-}
-//---------------------------------------------------------------------------------------------------------------//
-String generarArrayErrores()
-{ //Se genera un array con todas los errores existentes 0=false 1=true
-
-  String aux = "";
-  aux += ERR_MEDICION_PH ? "1" : "0";
-  aux += ERR_MEDICION_CE ? "1" : "0";
-  aux += ERR_MEDICION_HUMEDAD ? "1" : "0";
-  aux += ERR_MEDICION_TEMPERATURA ? "1" : "0";
-  aux += ERR_MEDICION_CO2 ? "1" : "0";
-  aux += ERR_MEDICION_NIVEL_PH_MAS ? "1" : "0";
-  aux += ERR_MEDICION_NIVEL_PH_MEN ? "1" : "0";
-  aux += ERR_MEDICION_NIVEL_NUT_A ? "1" : "0";
-  aux += ERR_MEDICION_NIVEL_NUT_B ? "1" : "0";
-  aux += ERR_MEDICION_NIVEL_PRINCIPAL ? "1" : "0";
-  // aux += ERR_MEDICION_NIVEL_LIMPIA ? "1" : "0";
-  // aux += ERR_MEDICION_NIVEL_DESCARTE ? "1" : "0";
-  aux += ERR_MEDICION_TEMPERATURA_AGUA ? "1" : "0";
-  aux += ERR_ENVIO_INFORMACION ? "1" : "0";
-
-  return aux;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool generarJson()
-{
-  String auxArray = generarArrayAlertas();
-  String auxArray2 = generarArrayErrores();
-
-  //crear Json
-  StaticJsonBuffer<290> jsonBuffer;
-  JsonObject &json = jsonBuffer.createObject();
-  json["HumedadAire"] = completarLargo(floatTOstring(medicionHumedad), 5, 1);
-  json["NivelCO2"] = completarLargo(floatTOstring(medicionCO2), 8, 1);
-  json["TemperaturaAire"] = completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1);
-  json["TemperaturaAguaTanquePrincipal"] = completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1);
-  json["MedicionPH"] = completarLargo(floatTOstring(medicionPH), 6, 1);
-  json["MedicionCE"] = completarLargo(floatTOstring(medicionCE), 6, 1);
-  json["NivelTanquePrincipal"] = intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal));
-  // json["NivelTanqueLimpia"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia));
-  // json["NivelTanqueDescarte"] = intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada));
-  json["NivelPhMas"] = intTOstring(medicionNivelPHmas);
-  json["NivelPhMenos"] = intTOstring(medicionNivelPHmenos);
-  json["NivelNutrienteA"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA));
-  json["NivelNutrienteB"] = intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB));
-  json["Alertas"] = auxArray;
-  json["Errores"] = auxArray2;
-
-  json.prettyPrintTo(Serial);
-
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool enviarInformacion()
-{
-  String auxArray = generarArrayAlertas();
-  String auxArray2 = generarArrayErrores();
-  contadorRechazos = 0;
-  ERR_ENVIO_INFORMACION = false;
-  for (int i = 1; i <= 19; i++)
-  {
-    bool resultado = false;
-    SERIAL_PRINT("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii: ", i);
-    switch (i)
+    switch (color)
     {
     case 1:
-      resultado = sendPackage("HumAire", i, completarLargo(floatTOstring(medicionHumedad), 5, 1));
+      digitalWrite(rled, HIGH); // Se enciende color rojo
+      digitalWrite(gled, LOW);  // Se apaga colo verde
       break;
     case 2:
-      resultado = sendPackage("CO2", i, completarLargo(floatTOstring(medicionCO2), 8, 1));
+      digitalWrite(rled, LOW);  // Se enciende color rojo
+      digitalWrite(gled, HIGH); // Se apaga colo verde
       break;
-    case 3:
-      resultado = sendPackage("TempAire", i, completarLargo(floatTOstring(medicionTemperaturaAire), 5, 1));
-      break;
-    case 4:
-      resultado = sendPackage("TempAgua", i, completarLargo(floatTOstring(medicionTemperaturaAgua), 5, 1));
-      break;
-    case 5:
-      resultado = sendPackage("PH", i, completarLargo(floatTOstring(medicionPH), 6, 1));
-      break;
-    case 6:
-      resultado = sendPackage("CE", i, completarLargo(floatTOstring(medicionCE), 6, 1));
-      break;
-    case 7:
-      resultado = sendPackage("NivelTanqueP", i, intTOstring(nivelTOporcentaje(medicionNivelTanquePrincial, maximoNivelTanquePrincial, pisoTanqueAguaPrincipal)));
-      break;
-    case 8:
-      //     resultado=sendPackage("NivelTanqueL", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueAguaLimpia, maximoNivelTanqueAguaLimpia, pisoTanqueAguaLimpia)));
-      resultado = true;
-      break;
-    case 9:
-      //   resultado=sendPackage("NivelTanqueD", i, intTOstring(nivelTOporcentaje(medicionNivelTanqueDesechable, maximoNivelTanqueDesechable, pisoTanqueAguaDescartada)));
-      resultado = true;
-      break;
-    case 10:
-      resultado = sendPackage("NivelPh+", i, intTOstring(medicionNivelPHmas));
-      break;
-    case 11:
-      resultado = sendPackage("NivelPh-", i, intTOstring(medicionNivelPHmenos));
-      break;
-    case 12:
-      resultado = sendPackage("NivelNutA", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteA, maximoNivelNutrienteA, pisoTanqueNutrienteA)));
-      break;
-    case 13:
-      resultado = sendPackage("NivelNutB", i, intTOstring(nivelTOporcentaje(medicionNivelNutrienteB, maximoNivelNutrienteB, pisoTanqueNutrienteB)));
-      break;
-    case 14:
-      resultado = sendPackage("A", i, auxArray);
-      break;
-    case 15:
-      resultado = sendPackage("E", i, auxArray2);
-      break;
-    case 16:
-      resultado = sendPackage("HsL", i, "16");
-      break;
-    case 17:
-      resultado = sendPackage("HiL", i, "17");
-      break;
-    case 18:
-      resultado = sendPackage("phA", i, "18");
-      break;
-    case 19:
-      resultado = sendPackage("pwr", i, "19");
-      break;
-    }
-
-    if (!resultado)
-    {
-      contadorRechazos++;
-      i--;
-    }
-    else
-    {
-      contadorRechazos = 0;
-    }
-
-    if (contadorRechazos > RECHAZOS_MAXIMOS)
-    {
-      ERR_ENVIO_INFORMACION = true;
-      return false;
+    default:
+      digitalWrite(rled, LOW); // Se enciende color rojo
+      digitalWrite(gled, LOW); // Se apaga colo verde
     }
   }
-  return true;
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool sendPackage(String nombre, int cmd, String valor)
-{
-  delay(10);
-  char command[3];
-  completarLargo(intTOstring(cmd), 2, 1).toCharArray(command, 3);
-  char payLoad[25];
-  char package[32];
-  char aux[22];
-
-  parameterToJson(nombre, valor).toCharArray(aux, 22);
-
-  snprintf(payLoad, sizeof(payLoad), "%s%c%s", command, (char)DELIMITER_CHARACTER, aux);
-  strcpy(package, preparePackage(payLoad, strlen(payLoad)));
-  Serial.println(package);
-
-  return send(package, command);
-}
-//---------------------------------------------------------------------------------------------------------------//
-String parameterToJson(String nombre, String valor)
-{
-  return "{\"" + nombre + "\":\"" + valor + "\"}";
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool send(const char *message, const char *com)
-{
-  delay(10);
-  receivedPackage = "";
-
-  SERIAL_PRINT("Envio: ", message);
-  esp.writeData(message);
-  delay(25);
-  receivedPackage = esp.readData();
-  SERIAL_PRINT("Recibo: ", receivedPackage);
-  Serial.println();
-
-  return checkPackageComplete(com);
-
-  //SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV16, MSBFIRST, SPI_MODE3));
-  //SPI.endTransaction ();
-}
-//---------------------------------------------------------------------------------------------------------------//
-bool generarAlerta(String mensaje)
-{
-  Serial.println(mensaje);
-}
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** FUNCIONES para la generacion de alertas >
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** < FUNCIONES para el reloj RTC
-//---------------------------------------------------------------------------------------------------------------//
-void digitalClockDisplay()
-{
-  // digital clock display of the time
-  Serial.print(hour());
-  printDigits(minute());
-  printDigits(second());
-  Serial.println();
-}
-//---------------------------------------------------------------------------------------------------------------//
-void printDigits(int digits)
-{
-  Serial.print(":");
-  if (digits < 10)
-    Serial.print('0');
-  Serial.print(digits);
-}
-//---------------------------------------------------------------------------------------------------------------//
-int ajustarHoras(int x)
-{
-  if (x >= 24)
-  {              //si la cuenta supero las 24hs
-    if (x == 24) //si son 24 lo paso a 00hs
-      return 0;
-    else
-    { //si son mas de 24hs, lo ajusto a la hora real
-      return x - 24;
-    }
-  }
-  return x; //como es menor a 24 queda igual
-}
-//---------------------------------------------------------------------------------------------------------------//
-//************************************************************** FUNCIONES para el reloj RTC >
-//---------------------------------------------------------------------------------------------------------------//
-
-void colorRGB(int color) //0 off, 1 Rojo, 2 Verde
-{
-  switch (color)
-  {
-  case 1:
-    digitalWrite(rled, HIGH); // Se enciende color rojo
-    digitalWrite(gled, LOW);  // Se apaga colo verde
-    break;
-  case 2:
-    digitalWrite(rled, LOW);  // Se enciende color rojo
-    digitalWrite(gled, HIGH); // Se apaga colo verde
-    break;
-  default:
-    digitalWrite(rled, LOW); // Se enciende color rojo
-    digitalWrite(gled, LOW); // Se apaga colo verde
-  }
-}

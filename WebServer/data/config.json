@@ -3,5 +3,6 @@
 	"Power": "0",
 	"CantidadHorasLuz": "02",
 	"HoraInicioLuz": "21",
-	"PH_aceptable": "07"
+	"PH_aceptable": "07",
+	"Vaciado": "0"
 }
