@@ -176,12 +176,13 @@ bool ALT_RTC_DESCONECTADO = false;
 bool ALT_VACIADO_REALIZADO = false;
 bool ALT_LLENADO_REALIZADO = false;
 
-#define CANTIDAD_INTENTOS 5       //Cantidad de intentos de vaciado o llenado de agua por segundo.
-#define CANTIDAD_MEDICIONES 10    //Cantidad de mediciones de nivel (para aminorar el error)
-#define TIEMPO_GOTEO 5            //segundos x cada ml
-#define TIEMPO_BOMBA_AGUA 10      //segundos x cada litro
+#define CANTIDAD_INTENTOS 5          //Cantidad de intentos de vaciado o llenado de agua por segundo.
+#define CANTIDAD_MEDICIONES 10       //Cantidad de mediciones de nivel (para aminorar el error)
+#define TIEMPO_GOTEO_NUTRIENTES 4000 //4 segundos x cada 5 ml
+#define TIEMPO_GOTEO_PH 1000         //1 segundos x cada 1 ml aproximado
+//#define TIEMPO_BOMBA_AGUA 10         //segundos x cada litro
 #define TIEMPO_LECTURA_NIVEL 1000 //segundos de lectura de nivel en llenado / vaciado
-#define CM_POR_LITRO 2            //cm x cada litro
+//#define CM_POR_LITRO 2               //cm x cada litro
 
 #define TIEMPO_VENTILACION 60 //Tiempo en el que se ejecuta el timer de apagado de ventilador.
 
@@ -193,8 +194,8 @@ bool CALENTADOR_FUNCIONANDO = false;
 
 bool CONFIGURAR_ALARMAS = true; //Para setear la configuracion de las alarmas (Luces)
 //Alarmas de encendido y apagado de luces.
-AlarmId idAlarmON;
-AlarmId idAlarmOFF;
+AlarmId idAlarmON;  //ID de la alarma de encendido de las luces.
+AlarmId idAlarmOFF; //ID de la alarma de apagado de las luces.
 
 //************************** pH del agua *****************************************
 #define pinPH A1 //Seleccionamos el pin que usara el sensor de pH.
@@ -390,6 +391,7 @@ void loop()
     delay(500);
     colorRGB(1);
     delay(500);
+    colorRGB(0);
   }
 
   if (CMD_SISTEMA_ENCENDIDO)
@@ -568,7 +570,7 @@ void loop()
     {
       if (!vaciarTanque() && !tanqueVacio)
       {
-                //Algo falló. Alertar
+        //Algo falló. Alertar
         if (ERR_SALIDA_AGUA_DESCARTE == true)
         {
           generarAlerta("ERR_SALIDA_AGUA_DESCARTE");
@@ -579,7 +581,7 @@ void loop()
     if (tanqueVacio)
     {
       apagarTodo();
-      if (!llenarTanque())
+      if (!llenarTanque(true))
       {
         //Algo falló. Alertar
         if (ERR_INGRESO_AGUA_LIMPIA == true)
@@ -638,7 +640,7 @@ void loop()
       {
         generarAlerta("CMD_SUBIR_PH");
         encenderPHmas();
-        delay(TIEMPO_GOTEO);
+        delay(TIEMPO_GOTEO_PH);
         apagarPHmas();
         apagarPHmenos();
       }
@@ -647,7 +649,7 @@ void loop()
       {
         generarAlerta("CMD_BAJAR_PH");
         encenderPHmenos();
-        delay(TIEMPO_GOTEO);
+        delay(TIEMPO_GOTEO_PH);
         apagarPHmenos();
         apagarPHmas();
       }
@@ -663,7 +665,7 @@ void loop()
       {
         generarAlerta("CMD_ADD_NUTRIENTE_A");
         encenderNutrientesA();
-        delay(TIEMPO_GOTEO);
+        delay(TIEMPO_GOTEO_NUTRIENTES);
         apagarBombaNutrientesA();
         apagarBombaNutrientesB();
       }
@@ -671,7 +673,7 @@ void loop()
       {
         generarAlerta("CMD_ADD_NUTRIENTE_B");
         encenderNutrientesB();
-        delay(TIEMPO_GOTEO);
+        delay(TIEMPO_GOTEO_NUTRIENTES);
         apagarBombaNutrientesB();
         apagarBombaNutrientesA();
       }
@@ -687,7 +689,7 @@ void loop()
         generarAlerta("CMD_ADD_AGUA");
 
         apagarTodo();
-        if (!llenarTanque())
+        if (!llenarTanque(false))
         {
           //Algo falló. Alertar
           if (ERR_INGRESO_AGUA_LIMPIA == true)
@@ -1567,7 +1569,7 @@ void loop()
     return false;
   }
   //---------------------------------------------------------------------------------------------------------------//
-  bool llenarTanque()
+  bool llenarTanque(bool vacio)
   {
     ERR_INGRESO_AGUA_LIMPIA = false;
     ALT_LLENADO_REALIZADO = false;
@@ -1595,6 +1597,18 @@ void loop()
       }
     }
     apagarLlenado();
+
+    if (vacio)
+    {
+      generarAlerta("CMD_ADD_15NUTRIENTE_A");
+      generarAlerta("CMD_ADD_15NUTRIENTE_B");
+      encenderNutrientesA();
+      encenderNutrientesB();
+      delay(TIEMPO_GOTEO_NUTRIENTES * 3);
+      apagarBombaNutrientesA();
+      apagarBombaNutrientesB();
+    }
+
     if (!error)
     {
       ALT_LLENADO_REALIZADO = true;
