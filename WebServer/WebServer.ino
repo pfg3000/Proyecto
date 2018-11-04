@@ -119,8 +119,8 @@ char Alert[50];
 char Error1[50];
 
 //********* Declaracion de variables para cada color R G B
-int rled = 2; // Pin para led rojo
-int gled = 0;  // Pin para led verde
+int rled = 0; // Pin para led rojo
+int gled = 2;  // Pin para led verde
 
 void setup() {
   //********* Se inicializan pines PWM como salida

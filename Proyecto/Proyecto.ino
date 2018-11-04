@@ -135,9 +135,12 @@ int contadorRechazos = 0;       //Contador de paquetes rechazados en el envio a 
 #define SEND_PACKAGE_TIME 30000 //Cada x tiempo se envian los paquetes a la ESP
 
 //************************** Banderas de comandos y errores, variables varias *********************
-bool CMD_SISTEMA_ENCENDIDO = false; //Bandera para iniciar el funcionamiento de SmartZ
-int rled = 6;                       // Pin para led rojo
-int gled = 7;                       // Pin para led verde
+#define apago HIGH
+#define prendo LOW
+
+bool CMD_SISTEMA_ENCENDIDO = true; //Bandera para iniciar el funcionamiento de SmartZ
+int rled = 7;                      // Pin para led rojo
+int gled = 6;                      // Pin para led verde
 
 //Comandos
 bool CMD_BAJAR_TEMPERATURA_AGUA = false;
@@ -212,11 +215,11 @@ AlarmId idAlarmOFF; //ID de la alarma de apagado de las luces.
 MQ135 gasSensor = MQ135(pinCO2);
 
 //************************* Niveles de liquido *********************************************
-#define pinNivel1 24 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A.
-#define pinNivel2 25 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A.
+#define pinNivel1 24 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A. T
+#define pinNivel2 25 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes A. E
 
-#define pinNivel3 26 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B.
-#define pinNivel4 27 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B.
+#define pinNivel3 26 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B. T
+#define pinNivel4 27 //Seleccionamos el pin en el que se conectará el sensor de nivel de nutrientes B. E
 
 //#define pinNivel5 29 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH+.
 #define pinNivel6 A15 //Seleccionamos el pin en el que se conectará el sensor de nivel de pH+.
@@ -231,8 +234,8 @@ MQ135 gasSensor = MQ135(pinCO2);
 #define pinNivel11 34 //Seleccionamos el pin en el que se conectará el sensor de nivel tanque minimo.
 #define pinNivel12 35 //Seleccionamos el pin en el que se conectará el sensor de nivel tanque lleno.
 
-#define pinNivel13 36 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal.
-#define pinNivel14 37 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal.
+#define pinNivel13 36 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal. T
+#define pinNivel14 37 //Seleccionamos el pin en el que se conectará el sensor de nivel de tanque principal. E
 
 //************************** Temperatura y humedad del aire ********************************
 #define DHTTYPE DHT22     //Se selecciona el tipo de sensor medidor de temperatura DHT22.
@@ -254,7 +257,7 @@ DHT dht(pinDHT, DHTTYPE); //Se inicia una variable que será usada por Arduino p
 #define PHpinRELE12 38            //Seleccionamos el pin en el que se conectará el sensor de ph.
 #define CEpinRELE13 39            //Seleccionamos el pin en el que se conectará el sensor de ce.
 #define PeltierpinRELE14 30       //Seleccionamos el pin en el que se conectará el peltier.
-#define BombaVaciadopinRELE15 31  //Seleccionamos el pin en el que se conectará la Bomba de agua de vaciado.
+#define BombaVaciadoPinRELE15 31  //Seleccionamos el pin en el que se conectará la Bomba de agua de vaciado.
 //#define pinRELE16  //Seleccionamos el pin en el que se conectará **Sin Asignar.
 
 //******************************************************************* Temperatura del agua
@@ -318,7 +321,7 @@ float minimoNivelTanquePrincial = 0.0;
 float maximoNivelTanquePrincial = 0.0;
 bool tanqueLleno = false; //Flotante de tanque lleno.
 bool tanqueMedio = false; //Flotante de tanque medio.
-bool tanqueVacio = false; //Flotante de tanque vacio.
+bool tanqueVacio = true;  //Flotante de tanque vacio.
 float pisoTanqueAguaPrincipal = 0.0;
 //***********************************************************************************  VARIABLES PARA MEDICIONES >
 
@@ -371,6 +374,8 @@ void setup()
   pinMode(PeltierpinRELE14, OUTPUT);       // **Sin Asignar.
   pinMode(BombaVaciadoPinRELE15, OUTPUT);  //Bomba de agua Vaciado.
   //  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
+
+  apagarTodo(true,0);
 
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
@@ -428,6 +433,7 @@ void loop()
   SERIAL_PRINT("hsLuzParametro: ", hsLuzParametro);
   SERIAL_PRINT("horaInicioLuz: ", horaInicioLuz);
   SERIAL_PRINT("PhParametro: ", PhParametro);
+  SERIAL_PRINT("Encendido: ", CMD_SISTEMA_ENCENDIDO);
 
   humedadMaxParametro = 60.0;         //%
   humedadMinParametro = 40.0;         //%
@@ -443,16 +449,16 @@ void loop()
   ceMaxParametro = 0.333;
   ceMinParametro = 0.111;
 
-  maximoNivelNutrienteA = 5;
-  maximoNivelNutrienteB = 5;
+  maximoNivelNutrienteA = 3;
+  maximoNivelNutrienteB = 3;
   minimoNivelNutrienteA = 10;
   minimoNivelNutrienteB = 10;
-  pisoTanqueNutrienteA = 15.0;
-  pisoTanqueNutrienteB = 15.0;
+  pisoTanqueNutrienteA = 13.0;
+  pisoTanqueNutrienteB = 13.0;
 
-  minimoNivelTanquePrincial = 10;
-  maximoNivelTanquePrincial = 5;
-  pisoTanqueAguaPrincipal = 15.0;
+  minimoNivelTanquePrincial = 14.0;
+  maximoNivelTanquePrincial = 3.0;
+  pisoTanqueAguaPrincipal = 18.0;
 
   if ((hsLuzParametro != hsLuzParametroOriginal && hsLuzParametroOriginal != 0) || (horaInicioLuz != horaInicioLuzOriginal && horaInicioLuzOriginal != -1))
   { //Si vino de la ESP algun cambio de valores, reconfiguro las alarmas.
@@ -581,9 +587,9 @@ void loop()
 
   if (CMD_SISTEMA_ENCENDIDO)
   {
-    if (CMD_VACIAR_AGUA)
+    if (CMD_VACIAR_AGUA && !tanqueVacio)
     {
-      if (!vaciarTanque() && !tanqueVacio)
+      if (!vaciarTanque())
       {
         //Algo falló. Alertar
         if (ERR_SALIDA_AGUA_DESCARTE == true)
@@ -597,15 +603,19 @@ void loop()
       }
     }
 
-    if (tanqueVacio)
+    if (tanqueVacio) //
     {
-      apagarTodo();
+      apagarTodo(true,0);
       if (!llenarTanque(true))
       {
         //Algo falló. Alertar
         if (ERR_INGRESO_AGUA_LIMPIA == true)
         {
           generarAlerta("ERR_INGRESO_AGUA_LIMPIA");
+        }
+        if (ERR_MEDICION_NIVEL_PRINCIPAL == true)
+        {
+          generarAlerta("ERR_MEDICION_NIVEL_PRINCIPAL");
         }
       }
       else
@@ -702,12 +712,16 @@ void loop()
         apagarBombaNutrientesA();
         apagarBombaNutrientesB();
       }
-
+      SERIAL_PRINT("AGREGAR AGUA??? ", CMD_ADD_AGUA);
       if (CMD_ADD_AGUA)
       {
         generarAlerta("CMD_ADD_AGUA");
+        apagarTodo(false,5000);
 
-        apagarTodo();
+        encenderBombaVaciado();
+        delay(15000);
+        apagarBombaVaciado();
+
         if (!llenarTanque(false))
         {
           //Algo falló. Alertar
@@ -793,53 +807,52 @@ void loop()
   }
   else
   { //apago todo
-    apagarTodo();
+    apagarTodo(true,0);
   }
-  /*
-    //Se imprimen las variables
-    Serial.print("Humedad: ");
-    Serial.print(medicionHumedad);
-    Serial.println(" %");
 
-    Serial.print("Temperatura: ");
-    Serial.print(medicionTemperaturaAire);
-    Serial.println(" ºC");
+  //Se imprimen las variables
+  Serial.print("Humedad: ");
+  Serial.print(medicionHumedad);
+  Serial.println(" %");
 
-    Serial.print("Nutrientes A: ");
-    Serial.println(medicionNivelNutrienteA);
-    Serial.print("Nutrientes B: ");
-    Serial.println(medicionNivelNutrienteB);
+  Serial.print("Temperatura: ");
+  Serial.print(medicionTemperaturaAire);
+  Serial.println(" ºC");
 
-    Serial.print("pH+: ");
-    Serial.println(medicionNivelPHmas);
-    Serial.print("pH-: ");
-    Serial.println(medicionNivelPHmenos);
+  Serial.print("Nutrientes A: ");
+  Serial.println(medicionNivelNutrienteA);
+  Serial.print("Nutrientes B: ");
+  Serial.println(medicionNivelNutrienteB);
 
-    Serial.print("Temperatura agua: ");
-    Serial.print(medicionTemperaturaAgua);
-    Serial.println(" ºC");
+  Serial.print("pH+: ");
+  Serial.println(medicionNivelPHmas);
+  Serial.print("pH-: ");
+  Serial.println(medicionNivelPHmenos);
 
-    Serial.print("PH: ");
-    Serial.println(medicionPH, 3);
+  Serial.print("Temperatura agua: ");
+  Serial.print(medicionTemperaturaAgua);
+  Serial.println(" ºC");
 
-    Serial.print("Tanque de agua limpia ");
-    Serial.println(medicionNivelTanqueAguaLimpia);
-    Serial.print("Tanque de agua descartada ");
-    Serial.println(medicionNivelTanqueDesechable);
-    Serial.print("Tanque de agua principal ");
-    Serial.println(medicionNivelTanquePrincial);
+  Serial.print("PH: ");
+  Serial.println(medicionPH, 3);
 
-    Serial.print("CO2: ");
-    Serial.print(medicionCO2);
-    Serial.println(" ppm");
+  // Serial.print("Tanque de agua limpia ");
+  // Serial.println(medicionNivelTanqueAguaLimpia);
+  // Serial.print("Tanque de agua descartada ");
+  // Serial.println(medicionNivelTanqueDesechable);
+  Serial.print("Tanque de agua principal ");
+  Serial.println(medicionNivelTanquePrincial);
 
-    //    Serial.println("sensor=");
-    //    Serial.print(sensorValue);
-    Serial.print("CE: ");
-    Serial.println(medicionCE);
+  Serial.print("CO2: ");
+  Serial.print(medicionCO2);
+  Serial.println(" ppm");
 
-    Serial.println("");
-  */
+  //    Serial.println("sensor=");
+  //    Serial.print(sensorValue);
+  Serial.print("CE: ");
+  Serial.println(medicionCE);
+
+  Serial.println("");
 
   //  Serial.println("");
   //  Serial.println("");
@@ -853,21 +866,28 @@ void loop()
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES de encendido y apagado de dispositivos
 //---------------------------------------------------------------------------------------------------------------//
-bool apagarTodo()
+bool apagarTodo(bool todo, int timeDelay)
 {
   apagarBombaNutrientesA();
   apagarBombaNutrientesB();
   apagarBombaPrincipal();
   apagarBombaVaciado();
-  apagarCalentador();
   apagarCE();
-  apagarEnfriador();
   apagarLlenado();
-  apagarLuces();
   apagarPH();
   apagarPHmas();
   apagarPHmenos();
-  apagarVentiladores();
+
+  if (todo == true)
+  {
+    apagarCalentador();
+    apagarLuces();
+    apagarEnfriador();
+    apagarVentiladores();
+  }
+
+  if(timeDelay!=0)
+    delay(timeDelay);
 
   return true;
 }
@@ -876,27 +896,27 @@ bool apagarTodo()
 bool encenderEnfriador()
 {
   ENFRIADOR_FUNCIONANDO = true;
-  digitalWrite(BombaEnfriadoPinRELE1, HIGH);
-  digitalWrite(PeltierpinRELE14, HIGH);
+  digitalWrite(BombaEnfriadoPinRELE1, prendo);
+  digitalWrite(PeltierpinRELE14, prendo);
   return true;
 }
 bool apagarEnfriador()
 {
   ENFRIADOR_FUNCIONANDO = false;
-  digitalWrite(BombaEnfriadoPinRELE1, LOW);
-  digitalWrite(PeltierpinRELE14, LOW);
+  digitalWrite(BombaEnfriadoPinRELE1, apago);
+  digitalWrite(PeltierpinRELE14, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //BombaLlenadoPinRELE2
 bool encenderLlenado()
 {
-  digitalWrite(BombaLlenadoPinRELE2, HIGH);
+  digitalWrite(BombaLlenadoPinRELE2, prendo);
   return true;
 }
 bool apagarLlenado()
 {
-  digitalWrite(BombaLlenadoPinRELE2, LOW);
+  digitalWrite(BombaLlenadoPinRELE2, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -904,88 +924,88 @@ bool apagarLlenado()
 bool encenderBombaPrincipal()
 {
   BOMBA_FUNCIONANDO = true;
-  digitalWrite(BombaPrincipalPinRELE3, HIGH);
+  digitalWrite(BombaPrincipalPinRELE3, prendo);
   return true;
 }
 bool apagarBombaPrincipal()
 {
   BOMBA_FUNCIONANDO = false;
-  digitalWrite(BombaPrincipalPinRELE3, LOW);
+  digitalWrite(BombaPrincipalPinRELE3, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //BombaVaciadoPinRELE4
 bool encenderBombaVaciado()
 {
-  digitalWrite(BombaVaciadoPinRELE4, HIGH);
-  digitalWrite(BombaVaciadoPinRELE15, HIGH);
+  digitalWrite(BombaVaciadoPinRELE4, prendo);
+  digitalWrite(BombaVaciadoPinRELE15, prendo);
   return true;
 }
 bool apagarBombaVaciado()
 {
-  digitalWrite(BombaVaciadoPinRELE4, LOW);
-  digitalWrite(BombaVaciadoPinRELE15, LOW);
+  digitalWrite(BombaVaciadoPinRELE4, apago);
+  digitalWrite(BombaVaciadoPinRELE15, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //NutrienteApinRELE5
 bool encenderNutrientesA()
 {
-  digitalWrite(NutrienteApinRELE5, HIGH);
+  digitalWrite(NutrienteApinRELE5, prendo);
   return true;
 }
 bool apagarBombaNutrientesA()
 {
-  digitalWrite(NutrienteApinRELE5, LOW);
+  digitalWrite(NutrienteApinRELE5, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //NutrienteBpinRELE6
 bool encenderNutrientesB()
 {
-  digitalWrite(NutrienteBpinRELE6, HIGH);
+  digitalWrite(NutrienteBpinRELE6, prendo);
   return true;
 }
 bool apagarBombaNutrientesB()
 {
-  digitalWrite(NutrienteBpinRELE6, LOW);
+  digitalWrite(NutrienteBpinRELE6, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //pHMasPinRELE7
 bool encenderPHmas()
 {
-  digitalWrite(pHMasPinRELE7, HIGH);
+  digitalWrite(pHMasPinRELE7, prendo);
   return true;
 }
 bool apagarPHmas()
 {
-  digitalWrite(pHMasPinRELE7, LOW);
+  digitalWrite(pHMasPinRELE7, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //pHmenosPinRELE8
 bool encenderPHmenos()
 {
-  digitalWrite(pHmenosPinRELE8, HIGH);
+  digitalWrite(pHmenosPinRELE8, prendo);
   return true;
 }
 bool apagarPHmenos()
 {
-  digitalWrite(pHmenosPinRELE8, LOW);
+  digitalWrite(pHmenosPinRELE8, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //LucesPinRELE9
 void encenderLuces()
 {
-  digitalWrite(LucesPinRELE9, HIGH);
+  digitalWrite(LucesPinRELE9, prendo);
   //Serial.print("encenderLuces");
   //return true;
 }
 void apagarLuces()
 {
-  digitalWrite(LucesPinRELE9, LOW);
+  digitalWrite(LucesPinRELE9, apago);
   //Serial.print("apagarLuces");
   //return true;
 }
@@ -993,14 +1013,14 @@ void apagarLuces()
 //VentiladoresPinRELE10
 bool encenderVentiladores()
 {
-  digitalWrite(VentiladoresPinRELE10, HIGH);
+  digitalWrite(VentiladoresPinRELE10, prendo);
   VENTILADOR_FUNCIONANDO = true;
   Serial.println("encenderVentiladores");
   return true;
 }
 void apagarVentiladores()
 {
-  digitalWrite(VentiladoresPinRELE10, LOW);
+  digitalWrite(VentiladoresPinRELE10, apago);
   VENTILADOR_FUNCIONANDO = false;
   Serial.println("apagarVentiladores");
   //return true;
@@ -1010,37 +1030,37 @@ void apagarVentiladores()
 bool encenderCalentador()
 {
   CALENTADOR_FUNCIONANDO = true;
-  digitalWrite(CalentadorPinRELE11, HIGH);
+  digitalWrite(CalentadorPinRELE11, prendo);
   return true;
 }
 bool apagarCalentador()
 {
   CALENTADOR_FUNCIONANDO = false;
-  digitalWrite(CalentadorPinRELE11, LOW);
+  digitalWrite(CalentadorPinRELE11, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //PHpinRELE12
 bool encenderPH()
 {
-  digitalWrite(PHpinRELE12, LOW);
+  digitalWrite(PHpinRELE12, prendo);
   return true;
 }
 bool apagarPH()
 {
-  digitalWrite(PHpinRELE12, HIGH);
+  digitalWrite(PHpinRELE12, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
 //CEpinRELE13
 bool encenderCE()
 {
-  digitalWrite(CEpinRELE13, LOW);
+  digitalWrite(CEpinRELE13, prendo);
   return true;
 }
 bool apagarCE()
 {
-  digitalWrite(CEpinRELE13, HIGH);
+  digitalWrite(CEpinRELE13, apago);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -1054,31 +1074,37 @@ bool nivelTanque(char caso[])
   int estado = 0;
   if (strcmp(caso, "tanqueLleno") == 0)
   {
-    estado = digitalRead(pinNivel13);
+    estado = digitalRead(pinNivel12);
     goto continua;
   }
   if (strcmp(caso, "tanqueMedio") == 0)
   {
-    estado = digitalRead(pinNivel12);
+    estado = digitalRead(pinNivel11);
     goto continua;
   }
   if (strcmp(caso, "tanqueVacio") == 0)
   {
-    estado = digitalRead(pinNivel11);
+    estado = digitalRead(pinNivel10);
+    if (estado == 0)
+      estado = HIGH;
+    else
+      estado = LOW;
     goto continua;
   }
 
 continua:
-
+  // SERIAL_PRINT("Estado", estado);
   switch (estado)
   {
-  case 0:
+  case LOW:
     resultado = false;
     break;
-  case 1:
+  case HIGH:
     resultado = true;
     break;
   }
+  // SERIAL_PRINT("Resultado", resultado);
+
   return resultado;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -1214,7 +1240,7 @@ float medirPH()
 {
   apagarCE();
   encenderPH();
-  delay(500);
+  delay(1000);
   int measure = analogRead(pinPH); //Se lee el pH.
   //si es 0 esta conectado pero apagado.
   //SERIAL_PRINT("pinPH:",measure);
@@ -1229,7 +1255,7 @@ float medirCE()
 {
   apagarPH();
   encenderCE();
-  delay(500);
+  delay(1000);
   int sensorValue = 0;
   int outputValue = 0;
   sensorValue = analogRead(pinCE);
@@ -1307,7 +1333,7 @@ bool analizarAire()
 //---------------------------------------------------------------------------------------------------------------//
 bool analizarAgua()
 {
-  apagarTodo();
+  apagarTodo(false,5000);
   //-------------------------------------------------------TMP
   medicionTemperaturaAgua = medirTemperaturaAgua();
   ERR_MEDICION_TEMPERATURA_AGUA = false;
@@ -1321,14 +1347,14 @@ bool analizarAgua()
   { //Se requiere alguna accion.
     //encenderEnfriador();
     if (medicionTemperaturaAgua < temperaturaAguaMinParametro)
-    { //Bajar temperatura.
-      CMD_BAJAR_TEMPERATURA_AGUA = true;
-      CMD_SUBIR_TEMPERATURA_AGUA = false;
-    }
-    else if (medicionTemperaturaAgua > temperaturaAguaMaxParametro)
-    { //Subir temperaruta.
+    { //Subir temperatura.
       CMD_BAJAR_TEMPERATURA_AGUA = false;
       CMD_SUBIR_TEMPERATURA_AGUA = true;
+    }
+    else //if (medicionTemperaturaAgua > temperaturaAguaMaxParametro)
+    { //Bajar temperaruta.
+      CMD_BAJAR_TEMPERATURA_AGUA = true;
+      CMD_SUBIR_TEMPERATURA_AGUA = false;
     }
   }
   else
@@ -1338,6 +1364,7 @@ bool analizarAgua()
   }
 
   //-------------------------------------------------------PH
+  goto aaa;
   medicionPH = medirPH();
   ERR_MEDICION_PH = false;
   if (medicionPH == 0)
@@ -1360,7 +1387,7 @@ bool analizarAgua()
       CMD_SUBIR_PH = true;
       CMD_BAJAR_PH = false;
     }
-    else if (medicionPH > PHmaxParametro)
+    else //if (medicionPH > PHmaxParametro)
     {
       //encenderPHmenos();
       CMD_SUBIR_PH = false;
@@ -1372,9 +1399,12 @@ bool analizarAgua()
     CMD_SUBIR_PH = false;
     CMD_BAJAR_PH = false;
   }
-
+aaa:
   //-------------------------------------------------------CE
   medicionCE = medirCE();
+  SERIAL_PRINT("medicionCE ", medicionCE);
+  SERIAL_PRINT("ceMinParametro ", ceMinParametro);
+  SERIAL_PRINT("ceMaxParametro ", ceMaxParametro);
   ERR_MEDICION_CE = false;
   if (medicionCE == 0)
   { //Sensor desconectado o apagado.
@@ -1391,7 +1421,7 @@ bool analizarAgua()
       CMD_ADD_NUTRIENTE_B = true;
       CMD_ADD_AGUA = false;
     }
-    else if (medicionPH > ceMaxParametro)
+    else //if (medicionPH > ceMaxParametro)
     {
       //encenderPHmenos();
       CMD_ADD_NUTRIENTE_A = false;
@@ -1526,6 +1556,10 @@ bool controlarNivelesTanques()
   tanqueMedio = nivelTanque("tanqueMedio");
   tanqueVacio = nivelTanque("tanqueVacio");
 
+  // SERIAL_PRINT("tanqueLleno ", tanqueLleno);
+  // SERIAL_PRINT("tanqueMedio ", tanqueMedio);
+  // SERIAL_PRINT("tanqueVacio ", tanqueVacio);
+
   ERR_MEDICION_NIVEL_PRINCIPAL = false;
   medicionNivelTanquePrincial = medirNivel("medicionNivelTanquePrincial");
   if (medicionNivelTanquePrincial == 0)
@@ -1550,7 +1584,7 @@ bool controlarNivelesTanques()
   if (ERR_MEDICION_NIVEL_PRINCIPAL) //ERR_MEDICION_NIVEL_LIMPIA || ERR_MEDICION_NIVEL_DESCARTE ||
     return false;
 
-  if (!tanqueMedio || !tanqueVacio)
+  if (!tanqueMedio || tanqueVacio)
     ALT_MINIMO_PRINCIPAL = true;
 
   return true;
@@ -1594,18 +1628,41 @@ bool vaciarTanque()
 //---------------------------------------------------------------------------------------------------------------//
 bool llenarTanque(bool vacio)
 {
+  //SERIAL_PRINT("INGRESO AL LLENADO", "");
   ERR_INGRESO_AGUA_LIMPIA = false;
   ALT_LLENADO_REALIZADO = false;
   bool error = false;
   encenderLlenado();
   float nivel = medirNivel("medicionNivelTanquePrincial");
+  if (nivel == 0)
+  {
+    ERR_MEDICION_NIVEL_PRINCIPAL = true;
+    error = true;
+  }
   float nivelAux = 0;
   int intentos = 0;
-  while (!nivelTanque("tanqueLleno") || error)
+
+  //SERIAL_PRINT("NIVEL ", nivel);
+
+  bool level = nivelTanque("tanqueLleno");
+  //SERIAL_PRINT("aaaa ", aaaa);
+  //SERIAL_PRINT("error ", error);
+
+  while (!level && !error)
   {
+    //SERIAL_PRINT("INGRESO AL LLENADO", "");
+
     delay(TIEMPO_LECTURA_NIVEL);
     nivelAux = medirNivel("medicionNivelTanquePrincial");
-    if (nivel < nivelAux)
+
+    //SERIAL_PRINT("NIVEL AUX ", nivelAux);
+
+    if (nivelAux == 0)
+    {
+      ERR_MEDICION_NIVEL_PRINCIPAL = true;
+      error = true;
+    }
+    if (nivel > nivelAux)
     {
       nivel = nivelAux;
     }
@@ -1621,7 +1678,7 @@ bool llenarTanque(bool vacio)
   }
   apagarLlenado();
 
-  if (vacio)
+  if (vacio && !error)
   {
     generarAlerta("CMD_ADD_15NUTRIENTE_A");
     generarAlerta("CMD_ADD_15NUTRIENTE_B");
@@ -1863,7 +1920,7 @@ bool checkPackageComplete(const char *com)
         CMD_VACIAR_AGUA = true;
       else
         CMD_VACIAR_AGUA = false;
-      SERIAL_PRINT("Vaciado", CMD_VACIAR_AGUA);
+      SERIAL_PRINT("Vaciado ", CMD_VACIAR_AGUA);
       break;
     case 98:
       SERIAL_PRINT("BS", "BUSY");
