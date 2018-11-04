@@ -325,15 +325,15 @@ void loop() {
     enviarPaquete = true;
   }
 
-  if (enviarPaquete2) {
-    timeout2 = millis();
-    enviarPaquete2 = false;
-  }
-  if ((millis() - timeout2 > SEND_PACKAGE2_TIME)) {
-    Serial.println("GENERANDO JSON");
-    enviardatos();
-    enviarPaquete2 = true;
-  }
+  // if (enviarPaquete2) {
+  //   timeout2 = millis();
+  //   enviarPaquete2 = false;
+  // }
+  // if ((millis() - timeout2 > SEND_PACKAGE2_TIME)) {
+  //   Serial.println("GENERANDO JSON");
+  //   enviardatos();
+  //   enviarPaquete2 = true;
+  // }
 
   checkStatusWifi();
   delay(2000);
