@@ -185,7 +185,7 @@ bool recirculacion = false;
 
 #define CANTIDAD_INTENTOS 5          //Cantidad de intentos de vaciado o llenado de agua por segundo.
 #define CANTIDAD_MEDICIONES 10       //Cantidad de mediciones de nivel (para aminorar el error)
-#define TIEMPO_GOTEO_NUTRIENTES 4000 //4 segundos x cada 5 ml
+#define TIEMPO_GOTEO_NUTRIENTES 9000 //4 segundos x cada 5 ml -> tirara 30 ml entre los 2 nutrientes
 #define TIEMPO_GOTEO_PH 1000         //1 segundos x cada 1 ml aproximado
 //#define TIEMPO_BOMBA_AGUA 10         //segundos x cada litro
 #define TIEMPO_LECTURA_NIVEL 1000 //segundos de lectura de nivel en llenado / vaciado
@@ -446,8 +446,8 @@ void loop()
   temperaturaAguaMinParametro = 18.0; //ºc
   PHmaxParametro = PhParametro * 1.05;
   PHminParametro = PhParametro * 0.95;
-  ceMaxParametro = 0.333;
-  ceMinParametro = 0.111;
+  ceMaxParametro = 0.8;
+  ceMinParametro = 0.4;
 
   maximoNivelNutrienteA = 3;
   maximoNivelNutrienteB = 3;
@@ -689,23 +689,26 @@ void loop()
         apagarPHmas();
         apagarPHmenos();
       }
-
-      if (CMD_ADD_NUTRIENTE_A)
+      SERIAL_PRINT("CMD-ADD-A", CMD_ADD_NUTRIENTE_A);
+      SERIAL_PRINT("CMD-ADD-B", CMD_ADD_NUTRIENTE_B);
+      if ((CMD_ADD_NUTRIENTE_A || CMD_ADD_NUTRIENTE_B) && (!ALT_MINIMO_NUT_A && !ALT_MINIMO_NUT_B)) // Si hay q agregar A o B y ambos tienen nivel ok
       {
         generarAlerta("CMD_ADD_NUTRIENTE_A");
         encenderNutrientesA();
+        encenderNutrientesB();
         delay(TIEMPO_GOTEO_NUTRIENTES);
         apagarBombaNutrientesA();
         apagarBombaNutrientesB();
       }
+      /*SERIAL_PRINT("CMD-ADD-B", CMD_ADD_NUTRIENTE_B);
       if (CMD_ADD_NUTRIENTE_B)
       {
         generarAlerta("CMD_ADD_NUTRIENTE_B");
         encenderNutrientesB();
         delay(TIEMPO_GOTEO_NUTRIENTES);
         apagarBombaNutrientesB();
-        apagarBombaNutrientesA();
-      }
+        //apagarBombaNutrientesA();
+      }*/
       if (!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B)
       {
         generarAlerta("!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B");
@@ -721,6 +724,11 @@ void loop()
         encenderBombaVaciado();
         delay(15000);
         apagarBombaVaciado();
+
+        // add agua
+        /*encenderLlenado();
+        delay(15000);
+        apagarLlenado();*/
 
         if (!llenarTanque(false))
         {
@@ -1261,6 +1269,7 @@ float medirCE()
   sensorValue = analogRead(pinCE);
   //SERIAL_PRINT("pinCE:",sensorValue);
   outputValue = map(sensorValue, 0, 1023, 0, 5000);
+  delay(500);
   //SERIAL_PRINT("outputValue:",outputValue);
   apagarCE();
   return sensorValue * 5.00 / 1024;
