@@ -375,7 +375,7 @@ void setup()
   pinMode(BombaVaciadoPinRELE15, OUTPUT);  //Bomba de agua Vaciado.
   //  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
 
-  apagarTodo(true,0);
+  apagarTodo(true, 0);
 
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
@@ -573,6 +573,27 @@ void loop()
     {
       generarAlerta("ALT_MAXIMO_PRINCIPAL");
     }
+    if (maximoNivelTanquePrincial > medicionNivelTanquePrincial)
+    { //Solo agrego agua limpia.
+      apagarTodo(false, 5000);
+
+      if (!llenarTanque(false))
+      {
+        //Algo falló. Alertar
+        if (ERR_INGRESO_AGUA_LIMPIA == true)
+        {
+          generarAlerta("ERR_INGRESO_AGUA_LIMPIA");
+        }
+      }
+      else
+      {
+        if (ALT_LLENADO_REALIZADO == true)
+        {
+          generarAlerta("ALT_LLENADO_REALIZADO");
+          encenderBombaPrincipal();
+        }
+      }
+    }
   }
 
   if (recirculacion) //Activo el modo de recirculacion de agua hasta la proxima medicion.
@@ -605,7 +626,7 @@ void loop()
 
     if (tanqueVacio) //
     {
-      apagarTodo(true,0);
+      apagarTodo(true, 0);
       if (!llenarTanque(true))
       {
         //Algo falló. Alertar
@@ -719,7 +740,7 @@ void loop()
       if (CMD_ADD_AGUA)
       {
         generarAlerta("CMD_ADD_AGUA");
-        apagarTodo(false,5000);
+        apagarTodo(false, 5000);
 
         encenderBombaVaciado();
         delay(15000);
@@ -815,7 +836,7 @@ void loop()
   }
   else
   { //apago todo
-    apagarTodo(true,0);
+    apagarTodo(true, 0);
   }
 
   //Se imprimen las variables
@@ -894,7 +915,7 @@ bool apagarTodo(bool todo, int timeDelay)
     apagarVentiladores();
   }
 
-  if(timeDelay!=0)
+  if (timeDelay != 0)
     delay(timeDelay);
 
   return true;
@@ -1342,7 +1363,7 @@ bool analizarAire()
 //---------------------------------------------------------------------------------------------------------------//
 bool analizarAgua()
 {
-  apagarTodo(false,5000);
+  apagarTodo(false, 5000);
   //-------------------------------------------------------TMP
   medicionTemperaturaAgua = medirTemperaturaAgua();
   ERR_MEDICION_TEMPERATURA_AGUA = false;
@@ -1361,7 +1382,7 @@ bool analizarAgua()
       CMD_SUBIR_TEMPERATURA_AGUA = true;
     }
     else //if (medicionTemperaturaAgua > temperaturaAguaMaxParametro)
-    { //Bajar temperaruta.
+    {    //Bajar temperaruta.
       CMD_BAJAR_TEMPERATURA_AGUA = true;
       CMD_SUBIR_TEMPERATURA_AGUA = false;
     }
@@ -1524,6 +1545,7 @@ bool controlarNivelesNutrintes()
 //---------------------------------------------------------------------------------------------------------------//
 bool controlarNivelesTanques()
 {
+  apagarTodo(false, 5000);
   //------------------------------------------------------- Agua limpia
   /*  ERR_MEDICION_NIVEL_LIMPIA = false;
   medicionNivelTanqueAguaLimpia = medirNivel("medicionNivelTanqueAguaLimpia");
@@ -1596,6 +1618,7 @@ bool controlarNivelesTanques()
   if (!tanqueMedio || tanqueVacio)
     ALT_MINIMO_PRINCIPAL = true;
 
+  encenderBombaPrincipal();
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
