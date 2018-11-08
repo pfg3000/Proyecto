@@ -185,13 +185,13 @@ bool recirculacion = false;
 
 #define CANTIDAD_INTENTOS 5          //Cantidad de intentos de vaciado o llenado de agua por segundo.
 #define CANTIDAD_MEDICIONES 10       //Cantidad de mediciones de nivel (para aminorar el error)
-#define TIEMPO_GOTEO_NUTRIENTES 9000 //4 segundos x cada 5 ml -> tirara 30 ml entre los 2 nutrientes
-#define TIEMPO_GOTEO_PH 1000         //1 segundos x cada 1 ml aproximado
+#define TIEMPO_GOTEO_NUTRIENTES 4000 //4 segundos x cada 5 ml -> tirara 30 ml entre los 2 nutrientes
+#define TIEMPO_GOTEO_PH 2000         //1 segundos x cada 1 ml aproximado
 //#define TIEMPO_BOMBA_AGUA 10         //segundos x cada litro
 #define TIEMPO_LECTURA_NIVEL 1000 //segundos de lectura de nivel en llenado / vaciado
 //#define CM_POR_LITRO 2               //cm x cada litro
 
-#define TIEMPO_VENTILACION 60 //Tiempo en el que se ejecuta el timer de apagado de ventilador.
+#define TIEMPO_VENTILACION 6000 //Tiempo en el que se ejecuta el timer de apagado de ventilador.
 
 //Indicadores de dispositivos en funcionamiento
 bool VENTILADOR_FUNCIONANDO = false;
@@ -376,7 +376,7 @@ void setup()
   //  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
 
   apagarTodo(true, 0);
-
+  SERIAL_PRINT("INICIO SETUP", "");
   //********* Protocolo de comunicación.
   receivedPackage.reserve(200);
 
@@ -573,8 +573,9 @@ void loop()
     {
       generarAlerta("ALT_MAXIMO_PRINCIPAL");
     }
-    if (maximoNivelTanquePrincial > medicionNivelTanquePrincial)
+    if (maximoNivelTanquePrincial < medicionNivelTanquePrincial)
     { //Solo agrego agua limpia.
+      SERIAL_PRINT("BAJO NIVEL TANQUE PRINCIPALLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL", 0);
       apagarTodo(false, 5000);
 
       if (!llenarTanque(false))
@@ -627,6 +628,8 @@ void loop()
     if (tanqueVacio) //
     {
       apagarTodo(true, 0);
+      SERIAL_PRINT("TANQUE VACIO", "");
+
       if (!llenarTanque(true))
       {
         //Algo falló. Alertar
@@ -688,20 +691,22 @@ void loop()
 
       if (CMD_SUBIR_PH)
       {
-        generarAlerta("CMD_SUBIR_PH");
+        generarAlerta("CMD_SUBIR_PH_IN");
         encenderPHmas();
         delay(TIEMPO_GOTEO_PH);
+        generarAlerta("CMD_SUBIR_PH_OUT");
         apagarPHmas();
-        apagarPHmenos();
+        //apagarPHmenos();
       }
 
       if (CMD_BAJAR_PH)
       {
-        generarAlerta("CMD_BAJAR_PH");
+        generarAlerta("CMD_BAJAR_PH_IN");
         encenderPHmenos();
         delay(TIEMPO_GOTEO_PH);
+        generarAlerta("CMD_BAJAR_PH_OUT");
         apagarPHmenos();
-        apagarPHmas();
+        //apagarPHmas();
       }
 
       if (!CMD_SUBIR_PH && !CMD_BAJAR_PH)
@@ -710,8 +715,8 @@ void loop()
         apagarPHmas();
         apagarPHmenos();
       }
-      SERIAL_PRINT("CMD-ADD-A", CMD_ADD_NUTRIENTE_A);
-      SERIAL_PRINT("CMD-ADD-B", CMD_ADD_NUTRIENTE_B);
+      SERIAL_PRINT("CMD-ADD-A ", CMD_ADD_NUTRIENTE_A);
+      SERIAL_PRINT("CMD-ADD-B ", CMD_ADD_NUTRIENTE_B);
       if ((CMD_ADD_NUTRIENTE_A || CMD_ADD_NUTRIENTE_B) && (!ALT_MINIMO_NUT_A && !ALT_MINIMO_NUT_B)) // Si hay q agregar A o B y ambos tienen nivel ok
       {
         generarAlerta("CMD_ADD_NUTRIENTE_A");
@@ -829,7 +834,7 @@ void loop()
         {
           generarAlerta("CMD_VENTILAR");
           encenderVentiladores();
-          Alarm.timerOnce(TIEMPO_VENTILACION, apagarVentiladores);
+          //Alarm.timerOnce(TIEMPO_VENTILACION, apagarVentiladores);
         }
       }
     }
@@ -837,6 +842,7 @@ void loop()
   else
   { //apago todo
     apagarTodo(true, 0);
+    SERIAL_PRINT("SISTEMA APAGADO", "");
   }
 
   //Se imprimen las variables
@@ -918,6 +924,7 @@ bool apagarTodo(bool todo, int timeDelay)
   if (timeDelay != 0)
     delay(timeDelay);
 
+  SERIAL_PRINT("APAGAR TODO ", todo);
   return true;
 }
 //---------------------------------------------------------------------------------------------------------------//
@@ -1269,7 +1276,7 @@ float medirPH()
 {
   apagarCE();
   encenderPH();
-  delay(1000);
+  delay(2000);
   int measure = analogRead(pinPH); //Se lee el pH.
   //si es 0 esta conectado pero apagado.
   //SERIAL_PRINT("pinPH:",measure);
@@ -1284,7 +1291,7 @@ float medirCE()
 {
   apagarPH();
   encenderCE();
-  delay(1000);
+  delay(2000);
   int sensorValue = 0;
   int outputValue = 0;
   sensorValue = analogRead(pinCE);
@@ -1394,7 +1401,7 @@ bool analizarAgua()
   }
 
   //-------------------------------------------------------PH
-  goto aaa;
+  //goto aaa;
   medicionPH = medirPH();
   ERR_MEDICION_PH = false;
   if (medicionPH == 0)
@@ -1429,7 +1436,7 @@ bool analizarAgua()
     CMD_SUBIR_PH = false;
     CMD_BAJAR_PH = false;
   }
-aaa:
+  //aaa:
   //-------------------------------------------------------CE
   medicionCE = medirCE();
   SERIAL_PRINT("medicionCE ", medicionCE);
@@ -1587,9 +1594,9 @@ bool controlarNivelesTanques()
   tanqueMedio = nivelTanque("tanqueMedio");
   tanqueVacio = nivelTanque("tanqueVacio");
 
-  // SERIAL_PRINT("tanqueLleno ", tanqueLleno);
-  // SERIAL_PRINT("tanqueMedio ", tanqueMedio);
-  // SERIAL_PRINT("tanqueVacio ", tanqueVacio);
+  SERIAL_PRINT("tanqueLleno ", tanqueLleno);
+  SERIAL_PRINT("tanqueMedio ", tanqueMedio);
+  SERIAL_PRINT("tanqueVacio ", tanqueVacio);
 
   ERR_MEDICION_NIVEL_PRINCIPAL = false;
   medicionNivelTanquePrincial = medirNivel("medicionNivelTanquePrincial");
