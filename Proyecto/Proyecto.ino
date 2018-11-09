@@ -258,7 +258,7 @@ DHT dht(pinDHT, DHTTYPE); //Se inicia una variable que será usada por Arduino p
 #define CEpinRELE13 39            //Seleccionamos el pin en el que se conectará el sensor de ce.
 #define PeltierpinRELE14 30       //Seleccionamos el pin en el que se conectará el peltier.
 #define BombaVaciadoPinRELE15 31  //Seleccionamos el pin en el que se conectará la Bomba de agua de vaciado.
-//#define pinRELE16  //Seleccionamos el pin en el que se conectará **Sin Asignar.
+#define pinRELE16 5               //Seleccionamos el pin en el que se conectará reset de NODEMCU.
 
 //******************************************************************* Temperatura del agua
 const int pinDS18B20 = 23;                       //Seleccionamos el pin en el que se conectará el sensor DS18B20.
@@ -373,7 +373,7 @@ void setup()
   pinMode(CEpinRELE13, OUTPUT);            // **CE.
   pinMode(PeltierpinRELE14, OUTPUT);       // **Sin Asignar.
   pinMode(BombaVaciadoPinRELE15, OUTPUT);  //Bomba de agua Vaciado.
-  //  pinMode(pinRELE16, OUTPUT); // **Sin Asignar.
+  pinMode(pinRELE16, OUTPUT);              //Reset WiFi.
 
   apagarTodo(true, 0);
   SERIAL_PRINT("INICIO SETUP", "");
@@ -834,7 +834,7 @@ void loop()
         {
           generarAlerta("CMD_VENTILAR");
           encenderVentiladores();
-          //Alarm.timerOnce(TIEMPO_VENTILACION, apagarVentiladores);
+          Alarm.timerOnce(TIEMPO_VENTILACION, apagarVentiladores);
         }
       }
     }
@@ -900,6 +900,13 @@ void loop()
 //************************************************************** FUNCIONES ************************************************************** FUNCIONES
 //---------------------------------------------------------------------------------------------------------------//
 //************************************************************** < FUNCIONES de encendido y apagado de dispositivos
+//---------------------------------------------------------------------------------------------------------------//
+bool resetWifi()
+{
+  digitalWrite(pinRELE16, prendo);
+  delay(1000);
+  digitalWrite(pinRELE16, apago);
+}
 //---------------------------------------------------------------------------------------------------------------//
 bool apagarTodo(bool todo, int timeDelay)
 {
@@ -2183,6 +2190,7 @@ bool enviarInformacion()
     if (contadorRechazos > RECHAZOS_MAXIMOS)
     {
       ERR_ENVIO_INFORMACION = true;
+      resetWifi();
       return false;
     }
   }
