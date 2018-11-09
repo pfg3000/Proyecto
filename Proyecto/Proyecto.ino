@@ -181,7 +181,7 @@ bool ALT_LLENADO_REALIZADO = false;
 
 unsigned long timeoutRecirculacion; //Timeout para la recirculacion de agua entre ajustes de ph o nutrientes.
 #define RECIRCULACION_TIME 30000    //Cada x tiempo se vuelven a realizar los analisis de agua / aire.
-bool recirculacion = false;
+bool RECIRCULACION = false;
 
 #define CANTIDAD_INTENTOS 5          //Cantidad de intentos de vaciado o llenado de agua por segundo.
 #define CANTIDAD_MEDICIONES 10       //Cantidad de mediciones de nivel (para aminorar el error)
@@ -597,18 +597,19 @@ void loop()
     }
   }
 
-  if (recirculacion) //Activo el modo de recirculacion de agua hasta la proxima medicion.
-  {
-    timeoutRecirculacion = millis();
-    recirculacion = false;
-  }
-  if (millis() - timeoutRecirculacion > RECIRCULACION_TIME)
-  {
-    recirculacion = true;
-  }
-
   if (CMD_SISTEMA_ENCENDIDO)
   {
+
+    if (RECIRCULACION) //Activo el modo de recirculacion de agua hasta la proxima medicion.
+    {
+      timeoutRecirculacion = millis();
+      //RECIRCULACION = true;
+    }
+    if (millis() - timeoutRecirculacion > RECIRCULACION_TIME)
+    {
+      RECIRCULACION = false;
+    }
+
     if (CMD_VACIAR_AGUA && !tanqueVacio)
     {
       if (!vaciarTanque())
@@ -652,81 +653,86 @@ void loop()
       }
     }
 
-    if (!analizarAgua())
+    if (!RECIRCULACION)
     {
-      //Algo falló. Alertar
-      if (ERR_MEDICION_TEMPERATURA_AGUA == true)
+      if (!analizarAgua())
       {
-        generarAlerta("ERR_MEDICION_TEMPERATURA_AGUA");
+        //Algo falló. Alertar
+        if (ERR_MEDICION_TEMPERATURA_AGUA == true)
+        {
+          generarAlerta("ERR_MEDICION_TEMPERATURA_AGUA");
+        }
+        if (ERR_MEDICION_PH == true)
+        {
+          generarAlerta("ERR_MEDICION_PH");
+        }
+        if (ERR_MEDICION_CE == true)
+        {
+          generarAlerta("ERR_MEDICION_CE");
+        }
       }
-      if (ERR_MEDICION_PH == true)
+      else
       {
-        generarAlerta("ERR_MEDICION_PH");
-      }
-      if (ERR_MEDICION_CE == true)
-      {
-        generarAlerta("ERR_MEDICION_CE");
-      }
-    }
-    else
-    {
-      if (CMD_BAJAR_TEMPERATURA_AGUA)
-      {
-        generarAlerta("CMD_BAJAR_TEMPERATURA_AGUA");
-        encenderEnfriador();
-        apagarCalentador();
-      }
-      if (CMD_SUBIR_TEMPERATURA_AGUA)
-      {
-        generarAlerta("CMD_SUBIR_TEMPERATURA_AGUA");
-        apagarEnfriador();
-        encenderCalentador();
-      }
-      if (!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA)
-      {
-        generarAlerta("!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA");
-        apagarCalentador();
-        apagarEnfriador();
-      }
+        if (CMD_BAJAR_TEMPERATURA_AGUA)
+        {
+          generarAlerta("CMD_BAJAR_TEMPERATURA_AGUA");
+          encenderEnfriador();
+          apagarCalentador();
+        }
+        if (CMD_SUBIR_TEMPERATURA_AGUA)
+        {
+          generarAlerta("CMD_SUBIR_TEMPERATURA_AGUA");
+          apagarEnfriador();
+          encenderCalentador();
+        }
+        if (!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA)
+        {
+          generarAlerta("!CMD_BAJAR_TEMPERATURA_AGUA && !CMD_SUBIR_TEMPERATURA_AGUA");
+          apagarCalentador();
+          apagarEnfriador();
+        }
 
-      if (CMD_SUBIR_PH)
-      {
-        generarAlerta("CMD_SUBIR_PH_IN");
-        encenderPHmas();
-        delay(TIEMPO_GOTEO_PH);
-        generarAlerta("CMD_SUBIR_PH_OUT");
-        apagarPHmas();
-        //apagarPHmenos();
-      }
+        if (CMD_SUBIR_PH)
+        {
+          generarAlerta("CMD_SUBIR_PH_IN");
+          encenderPHmas();
+          delay(TIEMPO_GOTEO_PH);
+          generarAlerta("CMD_SUBIR_PH_OUT");
+          apagarPHmas();
+          //apagarPHmenos();
+          RECIRCULACION = true;
+        }
 
-      if (CMD_BAJAR_PH)
-      {
-        generarAlerta("CMD_BAJAR_PH_IN");
-        encenderPHmenos();
-        delay(TIEMPO_GOTEO_PH);
-        generarAlerta("CMD_BAJAR_PH_OUT");
-        apagarPHmenos();
-        //apagarPHmas();
-      }
+        if (CMD_BAJAR_PH)
+        {
+          generarAlerta("CMD_BAJAR_PH_IN");
+          encenderPHmenos();
+          delay(TIEMPO_GOTEO_PH);
+          generarAlerta("CMD_BAJAR_PH_OUT");
+          apagarPHmenos();
+          //apagarPHmas();
+          RECIRCULACION = true;
+        }
 
-      if (!CMD_SUBIR_PH && !CMD_BAJAR_PH)
-      {
-        generarAlerta("!CMD_SUBIR_PH && !CMD_BAJAR_PH");
-        apagarPHmas();
-        apagarPHmenos();
-      }
-      SERIAL_PRINT("CMD-ADD-A ", CMD_ADD_NUTRIENTE_A);
-      SERIAL_PRINT("CMD-ADD-B ", CMD_ADD_NUTRIENTE_B);
-      if ((CMD_ADD_NUTRIENTE_A || CMD_ADD_NUTRIENTE_B) && (!ALT_MINIMO_NUT_A && !ALT_MINIMO_NUT_B)) // Si hay q agregar A o B y ambos tienen nivel ok
-      {
-        generarAlerta("CMD_ADD_NUTRIENTE_A");
-        encenderNutrientesA();
-        encenderNutrientesB();
-        delay(TIEMPO_GOTEO_NUTRIENTES);
-        apagarBombaNutrientesA();
-        apagarBombaNutrientesB();
-      }
-      /*SERIAL_PRINT("CMD-ADD-B", CMD_ADD_NUTRIENTE_B);
+        if (!CMD_SUBIR_PH && !CMD_BAJAR_PH)
+        {
+          generarAlerta("!CMD_SUBIR_PH && !CMD_BAJAR_PH");
+          apagarPHmas();
+          apagarPHmenos();
+        }
+
+        if ((CMD_ADD_NUTRIENTE_A || CMD_ADD_NUTRIENTE_B) && (!ALT_MINIMO_NUT_A && !ALT_MINIMO_NUT_B)) // Si hay q agregar A o B y ambos tienen nivel ok
+        {
+          generarAlerta("CMD_ADD_NUTRIENTE_A");
+          generarAlerta("CMD_ADD_NUTRIENTE_B");
+          encenderNutrientesA();
+          encenderNutrientesB();
+          delay(TIEMPO_GOTEO_NUTRIENTES);
+          apagarBombaNutrientesA();
+          apagarBombaNutrientesB();
+          RECIRCULACION = true;
+        }
+        /*SERIAL_PRINT("CMD-ADD-B", CMD_ADD_NUTRIENTE_B);
       if (CMD_ADD_NUTRIENTE_B)
       {
         generarAlerta("CMD_ADD_NUTRIENTE_B");
@@ -735,81 +741,46 @@ void loop()
         apagarBombaNutrientesB();
         //apagarBombaNutrientesA();
       }*/
-      if (!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B)
-      {
-        generarAlerta("!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B");
-        apagarBombaNutrientesA();
-        apagarBombaNutrientesB();
-      }
-      SERIAL_PRINT("AGREGAR AGUA??? ", CMD_ADD_AGUA);
-      if (CMD_ADD_AGUA)
-      {
-        generarAlerta("CMD_ADD_AGUA");
-        apagarTodo(false, 5000);
 
-        encenderBombaVaciado();
-        delay(15000);
-        apagarBombaVaciado();
-
-        // add agua
-        /*encenderLlenado();
-        delay(15000);
-        apagarLlenado();*/
-
-        if (!llenarTanque(false))
+        if (!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B)
         {
-          //Algo falló. Alertar
-          if (ERR_INGRESO_AGUA_LIMPIA == true)
-          {
-            generarAlerta("ERR_INGRESO_AGUA_LIMPIA");
-          }
+          generarAlerta("!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B");
+          apagarBombaNutrientesA();
+          apagarBombaNutrientesB();
         }
-        else
+
+        SERIAL_PRINT("AGREGAR AGUA??? ", CMD_ADD_AGUA);
+        if (CMD_ADD_AGUA)
         {
-          if (ALT_LLENADO_REALIZADO == true)
+          generarAlerta("CMD_ADD_AGUA");
+          apagarTodo(false, 5000);
+
+          //Vaciamos un poco de agua por concentracion de nutrientes.
+          encenderBombaVaciado();
+          delay(15000);
+          apagarBombaVaciado();
+
+          if (!llenarTanque(false))
           {
-            generarAlerta("ALT_LLENADO_REALIZADO");
-            encenderBombaPrincipal();
-          }
-        }
-        /*
-        if (maximoNivelTanquePrincial > medicionNivelTanquePrincial)
-        { //Solo agrego agua limpia.
-          float cantBajo = maximoNivelTanquePrincial - medicionNivelTanquePrincial;
-          if (medicionNivelTanqueAguaLimpia > cantBajo)
-          {
-            encenderLlenado();
-            delay((cantBajo / CM_POR_LITRO) * TIEMPO_BOMBA_AGUA);
-            apagarLlenado();
+            //Algo falló. Alertar
+            if (ERR_INGRESO_AGUA_LIMPIA == true)
+            {
+              generarAlerta("ERR_INGRESO_AGUA_LIMPIA");
+            }
           }
           else
           {
-            generarAlerta("CMD_ADD_AGUA1"); //Tanque agua limpia, agua insuficiente.
+            if (ALT_LLENADO_REALIZADO == true)
+            {
+              generarAlerta("ALT_LLENADO_REALIZADO");
+              encenderBombaPrincipal();
+            }
           }
+          RECIRCULACION = TRUE;
         }
-        else
-        { //Descarto un poco y agrego misma cantidad.
-          float cantBajo = maximoNivelTanquePrincial - medicionNivelTanquePrincial;
-          if ((pisoTanqueAguaLimpia - medicionNivelTanqueAguaLimpia) > cantBajo && (medicionNivelTanqueDesechable + cantBajo) < maximoNivelTanqueDesechable)
-          {
-            encenderBombaVaciado();
-            delay((cantBajo / CM_POR_LITRO) * TIEMPO_BOMBA_AGUA);
-            apagarBombaVaciado();
-            encenderLlenado();
-            delay((cantBajo / CM_POR_LITRO) * TIEMPO_BOMBA_AGUA);
-            apagarLlenado();
-          }
-          else
-          {
-            if ((pisoTanqueAguaLimpia - medicionNivelTanqueAguaLimpia) > cantBajo)
-              generarAlerta("CMD_ADD_AGUA1"); //Tanque agua limpia, agua insuficiente.
-            if ((medicionNivelTanqueDesechable + cantBajo) < maximoNivelTanqueDesechable)
-              generarAlerta("CMD_ADD_AGUA2"); //Tanque descarte con espacio insuficiente.
-          }
-        }
-      }*/
       }
     }
+
     if (!analizarAire())
     {
       //Algo falló. Alertar
