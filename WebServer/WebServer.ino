@@ -47,7 +47,7 @@ bool enviarPaquete = true;
 bool enviarPaquete2 = true;
 unsigned long timeout;
 unsigned long timeout2;
-#define SEND_PACKAGE_TIME 45000
+#define SEND_PACKAGE_TIME 20000
 #define SEND_PACKAGE2_TIME 15000
 bool mutexSPI = true;// para que no se pise el SPI con la generacion del jSon.
 bool mutexWifi = true;// para que no se pise el ingreso del nuevo SSID y Pass con la generacion del jSon.
@@ -88,8 +88,8 @@ bool CONFIGURAR_ALARMAS = true;
 AlarmId loggit;
 
 char host[99];
-String strhost = "clientes.webbuilders.com.ar";// donde tengo la web
-String strurl = "/testSmartZ.php"; // metodo
+String strhost = "192.168.0.52";// donde tengo la web
+String strurl = "/smartz_api/public/comunicacionArduino"; // metodo
 
 String jsonForUpload;
 String configPackage = "";
@@ -203,7 +203,7 @@ void setup() {
             break;
           case 17:
             strcpy(cmd, "17");
-            parameterToJson("HoraIniLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 22);
+            parameterToJson("HoraInicioLuz", intTOstring(HoraInicioLuz)).toCharArray(aux, 22);
             snprintf(payLoad, sizeof(payLoad), "%s%c%s", cmd, (char)DELIMITER_CHARACTER, aux);
             strcpy(package, preparePackage(payLoad, strlen(payLoad)));
             break;
@@ -356,20 +356,24 @@ String intTOstring(int x)//Convertir de int a String
 //---------------------------------------------------------------------------------------------------------------//
 void upDatos()
 {
+  Serial.println("UPDATOS");
   mutexSPI = false;
   String linea;
   if (WiFi.status() == WL_CONNECTED)
   {
+    Serial.println("ENTOR AL IF");
     jsonForUpload = generarJson();
-    jsonForUpload = "http://clientes.webbuilders.com.ar/testSmartZ.php?dato=" + jsonForUpload;
+    jsonForUpload = "http://smartz.webbuilders.com.ar/comunicacionArduino?dato=" + jsonForUpload;
     char url[1000];
     jsonForUpload.toCharArray(url, jsonForUpload.length() + 1);
-    //    SERIAL_PRINT("jsonForUpload: ", jsonForUpload);
-    //    SERIAL_PRINT("URL: ", url);
+    Serial.println("JSON GENERADO");
+    SERIAL_PRINT("URL: ", url);
+    
     HTTPClient http;
     http.begin(url);
 
     int httpCode = http.GET();
+    Serial.println("ENTOR AL GET");
     if (httpCode > 0) {
       linea  = http.getString();
       SERIAL_PRINT("linea=", linea);
@@ -380,7 +384,33 @@ void upDatos()
     }
     http.end();   //Close connection
   }
-  mutexSPI = true;
+    mutexSPI = true;
+
+    if (linea != "") {
+      StaticJsonBuffer<500> jsonBuffer;
+      char json[300];
+      linea.toCharArray(json, 300);
+      JsonObject& root = jsonBuffer.parseObject(json);
+      //idDispositivo = root["id"];
+      Encendido = root["Power"];
+      CantidadHorasLuz = root["HorasLuz"];
+      HoraInicioLuz = root["HoraInicioLuz"];
+      PH_aceptable = root["pHaceptable"];
+      Vaciado = root["Vaciado"];
+
+      //SERIAL_PRINT("id=", id);
+      SERIAL_PRINT("E=", Encendido);
+      SERIAL_PRINT("CHL=", CantidadHorasLuz);
+      SERIAL_PRINT("HL=", HoraInicioLuz);
+      SERIAL_PRINT("PH=", PH_aceptable);
+
+      downloadConfig = "";
+      root.printTo(downloadConfig);
+    }
+    else
+    {
+      downloadConfig = "";
+    }
 }
 //---------------------------------------------------------------------------------------------------------------//
 void enviardatos()
@@ -389,7 +419,7 @@ void enviardatos()
   if (WiFi.status() == WL_CONNECTED)
   {
     HTTPClient http;
-    http.begin("http://clientes.webbuilders.com.ar/testSmartZ.php?dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\",\"Vaciado\":\"0\"}");
+    http.begin("http://smartz.webbuilders.com.ar/comunicacionArduino?dato={\"id\":\"12625275\",\"Power\":\"1\",\"HorasLuz\":\"02\",\"HoraInicioLuz\":\"21\",\"pHaceptable\":\"0007\",\"Vaciado\":\"0\"}");
 
     int httpCode = http.GET();
     if (httpCode > 0) {
@@ -469,11 +499,11 @@ void enviardatos()
     PH_aceptable = root["pHaceptable"];
     Vaciado = root["Vaciado"];
 
-    //  SERIAL_PRINT("id=", id);
-    //  SERIAL_PRINT("E=", Encendido);
-    //  SERIAL_PRINT("CHL=", HorasLuz);
-    //  SERIAL_PRINT("HL=", HoraInicioLuz);
-    //  SERIAL_PRINT("PH=", pHaceptable);
+    //SERIAL_PRINT("id=", id);
+    SERIAL_PRINT("E=", Encendido);
+    SERIAL_PRINT("CHL=", CantidadHorasLuz);
+    SERIAL_PRINT("HL=", HoraInicioLuz);
+    SERIAL_PRINT("PH=", PH_aceptable);
 
     downloadConfig = "";
     root.printTo(downloadConfig);
@@ -816,29 +846,32 @@ bool checkPackageComplete(void)
 //---------------------------------------------------------------------------------------------------------------//
 String generarJson()
 {
+  Serial.println("ENTOR AL JSON");
   String a(Alert);
   String e(Error1);
 
   String resultado;
   resultado.reserve(1000);
+  Serial.println("ESPACIO RESERVADO");
   resultado += "{";
-  resultado += parameterToJsonHalf("chipID", idDispositivo);
-  resultado += parameterToJsonHalf("HumedadAire", floatTOstring(medicionHumedad));
-  resultado += parameterToJsonHalf("NivelCO2", floatTOstring(medicionCO2));
-  resultado += parameterToJsonHalf("TemperaturaAire", floatTOstring(medicionTemperaturaAire));
-  resultado += parameterToJsonHalf("TemperaturaAguaTanquePrincipal", floatTOstring(medicionTemperaturaAgua));
-  resultado += parameterToJsonHalf("MedicionPH", floatTOstring(medicionPH));
-  resultado += parameterToJsonHalf("MedicionCE", floatTOstring(medicionCE));
-  resultado += parameterToJsonHalf("NivelTanquePrincipal", intTOstring(medicionNivelTanquePrincial));
-  resultado += parameterToJsonHalf("NivelTanqueLimpia", intTOstring(medicionNivelTanqueAguaLimpia));
-  resultado += parameterToJsonHalf("NivelTanqueDescarte", intTOstring(medicionNivelTanqueDesechable));
-  resultado += parameterToJsonHalf("NivelPhMas", intTOstring(medicionNivelPHmas));
-  resultado += parameterToJsonHalf("NivelPhMenos", intTOstring(medicionNivelPHmenos));
-  resultado += parameterToJsonHalf("NivelNutrienteA", intTOstring(medicionNivelNutrienteA));
-  resultado += parameterToJsonHalf("NivelNutrienteB", intTOstring(medicionNivelNutrienteB));
-  resultado += parameterToJsonHalf("Alertas", a);
+  resultado += parameterToJsonHalf("chipID", idDispositivo) + ",";
+  resultado += parameterToJsonHalf("HumedadAire", floatTOstring(medicionHumedad))+ ",";
+  resultado += parameterToJsonHalf("NivelCO2", floatTOstring(medicionCO2))+ ",";
+  resultado += parameterToJsonHalf("TemperaturaAire", floatTOstring(medicionTemperaturaAire))+ ",";
+  resultado += parameterToJsonHalf("TemperaturaAguaTanquePrincipal", floatTOstring(medicionTemperaturaAgua))+ ",";
+  resultado += parameterToJsonHalf("MedicionPH", floatTOstring(medicionPH))+ ",";
+  resultado += parameterToJsonHalf("MedicionCE", floatTOstring(medicionCE))+ ",";
+  resultado += parameterToJsonHalf("NivelTanquePrincipal", intTOstring(medicionNivelTanquePrincial))+ ",";
+  resultado += parameterToJsonHalf("NivelTanqueLimpia", intTOstring(medicionNivelTanqueAguaLimpia))+ ",";
+  resultado += parameterToJsonHalf("NivelTanqueDescarte", intTOstring(medicionNivelTanqueDesechable))+ ",";
+  resultado += parameterToJsonHalf("NivelPhMas", intTOstring(medicionNivelPHmas))+ ",";
+  resultado += parameterToJsonHalf("NivelPhMenos", intTOstring(medicionNivelPHmenos))+ ",";
+  resultado += parameterToJsonHalf("NivelNutrienteA", intTOstring(medicionNivelNutrienteA))+ ",";
+  resultado += parameterToJsonHalf("NivelNutrienteB", intTOstring(medicionNivelNutrienteB))+ ",";
+  resultado += parameterToJsonHalf("Alertas", a)+ ",";
   resultado += parameterToJsonHalf("Errores", e);
   resultado += "}";
+  Serial.println("FIN JSON");
   /*
     //crear Json
     StaticJsonBuffer<1000> jsonBuffer;
@@ -960,7 +993,8 @@ bool loadConfig()
 bool saveConfig() {
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& json = jsonBuffer.parseObject(downloadConfig);
-
+  Serial.println("************************************************************** ");
+  json.printTo(Serial);
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile)
   {

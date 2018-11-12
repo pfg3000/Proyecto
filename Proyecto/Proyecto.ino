@@ -179,8 +179,8 @@ bool ALT_RTC_DESCONECTADO = false;
 bool ALT_VACIADO_REALIZADO = false;
 bool ALT_LLENADO_REALIZADO = false;
 
-unsigned long timeoutRecirculacion; //Timeout para la recirculacion de agua entre ajustes de ph o nutrientes.
-#define RECIRCULACION_TIME 30000    //Cada x tiempo se vuelven a realizar los analisis de agua / aire.
+unsigned long timeoutRecirculacion = 0; //Timeout para la recirculacion de agua entre ajustes de ph o nutrientes.
+#define RECIRCULACION_TIME 15000    //Cada x tiempo se vuelven a realizar los analisis de agua / aire.
 bool RECIRCULACION = false;
 
 #define CANTIDAD_INTENTOS 5          //Cantidad de intentos de vaciado o llenado de agua por segundo.
@@ -188,7 +188,7 @@ bool RECIRCULACION = false;
 #define TIEMPO_GOTEO_NUTRIENTES 4000 //4 segundos x cada 5 ml -> tirara 30 ml entre los 2 nutrientes
 #define TIEMPO_GOTEO_PH 2000         //1 segundos x cada 1 ml aproximado
 //#define TIEMPO_BOMBA_AGUA 10         //segundos x cada litro
-#define TIEMPO_LECTURA_NIVEL 1000 //segundos de lectura de nivel en llenado / vaciado
+#define TIEMPO_LECTURA_NIVEL 5000 //segundos de lectura de nivel en llenado / vaciado
 //#define CM_POR_LITRO 2               //cm x cada litro
 
 #define TIEMPO_VENTILACION 6000 //Tiempo en el que se ejecuta el timer de apagado de ventilador.
@@ -271,12 +271,13 @@ int hsLuzParametroOriginal = 0;
 int hsLuzParametro = 0;
 int horaInicioLuzOriginal = -1;
 int horaInicioLuz = 0;
+bool lucesEncendidas = false;
 
 //Variables Medición de PH
 float medicionPH = 0.0; //Valor medido
 float PhParametro = 7.0;
-float PHmaxParametro = 0.0;
-float PHminParametro = 0.0;
+float PHmaxParametro = 8.0;
+float PHminParametro = 6.0;
 float medicionNivelPHmas = 0.0;   //Valor medido
 float medicionNivelPHmenos = 0.0; //Valor medido
 float minimoNivelPHmas = 500.0;
@@ -457,10 +458,10 @@ void loop()
   pisoTanqueNutrienteB = 13.0;
 
   minimoNivelTanquePrincial = 14.0;
-  maximoNivelTanquePrincial = 3.0;
+  maximoNivelTanquePrincial = 5.0;
   pisoTanqueAguaPrincipal = 18.0;
 
-  if ((hsLuzParametro != hsLuzParametroOriginal && hsLuzParametroOriginal != 0) || (horaInicioLuz != horaInicioLuzOriginal && horaInicioLuzOriginal != -1))
+ /* if ((hsLuzParametro != hsLuzParametroOriginal && hsLuzParametroOriginal != 0) || (horaInicioLuz != horaInicioLuzOriginal && horaInicioLuzOriginal != -1))
   { //Si vino de la ESP algun cambio de valores, reconfiguro las alarmas.
     hsLuzParametroOriginal = hsLuzParametro;
     horaInicioLuzOriginal = horaInicioLuz;
@@ -468,22 +469,42 @@ void loop()
     Alarm.disable(idAlarmON);
     Alarm.disable(idAlarmOFF);
   }
-
-  if (CONFIGURAR_ALARMAS)
-  { //Realizo la configuracion de las alarmas.
+*/
+  //if (CONFIGURAR_ALARMAS)
+ // { //Realizo la configuracion de las alarmas.
     tmElements_t datetime;
     if (RTC.read(datetime) == true)
     {
       //tomo la hora del RTC
       setTime(datetime.Hour, datetime.Minute, datetime.Second, datetime.Month, datetime.Day, datetime.Year);
-
+      SERIAL_PRINT("Hora Actual", datetime.Hour);
+      SERIAL_PRINT("Hora inicio luz", horaInicioLuz);
+      SERIAL_PRINT("Cantidad de horas luz", hsLuzParametro);
       // Creo las alarmas
       if (hsLuzParametro > 0)
       {
-        idAlarmON = Alarm.alarmRepeat(horaInicioLuz, 0, 0, encenderLuces);
-        idAlarmOFF = Alarm.alarmRepeat(ajustarHoras(horaInicioLuz + hsLuzParametro), 0, 0, apagarLuces);
+        //idAlarmON = Alarm.alarmRepeat(horaInicioLuz, 0, 0, encenderLuces);
+        //idAlarmOFF = Alarm.alarmRepeat(ajustarHoras(horaInicioLuz + hsLuzParametro), 0, 0, apagarLuces);
+        //chequeo hora actual y hora parametro
+        if(lucesEncendidas && datetime.Hour == ajustarHoras(horaInicioLuz + hsLuzParametro)){
+          SERIAL_PRINT("APAGO LUCES", 0);
+          apagarLuces();
+          lucesEncendidas = false;
+        }else
+        {
+          if(!lucesEncendidas && datetime.Hour == horaInicioLuz ){
+            SERIAL_PRINT("ENCIENDO LUCES", 0);
+            encenderLuces();
+            lucesEncendidas = true;
+          }
+        }
+      }else{
+        if(lucesEncendidas){
+          apagarLuces();
+        }
+          lucesEncendidas = false;
       }
-      CONFIGURAR_ALARMAS = false;
+      //CONFIGURAR_ALARMAS = false;
     }
     else
     {
@@ -501,7 +522,7 @@ void loop()
       }
     }
     // CONFIGURAR_ALARMAS = false;
-  }
+  //}
   digitalClockDisplay();
 
   if (!controlarNivelesPH())
@@ -573,9 +594,9 @@ void loop()
     {
       generarAlerta("ALT_MAXIMO_PRINCIPAL");
     }
-    if (maximoNivelTanquePrincial < medicionNivelTanquePrincial)
+    if (maximoNivelTanquePrincial < medicionNivelTanquePrincial && !CMD_VACIAR_AGUA)
     { //Solo agrego agua limpia.
-      SERIAL_PRINT("BAJO NIVEL TANQUE PRINCIPALLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL", 0);
+      SERIAL_PRINT("BAJO NIVEL TANQUE PRINCIPAL ", "1");
       apagarTodo(false, 5000);
 
       if (!llenarTanque(false))
@@ -597,21 +618,10 @@ void loop()
     }
   }
 
-  if (CMD_SISTEMA_ENCENDIDO)
-  {
-
-    if (RECIRCULACION) //Activo el modo de recirculacion de agua hasta la proxima medicion.
+  /******************** VACIAR TANQUE *****************************/
+  if (CMD_VACIAR_AGUA && !tanqueVacio)
     {
-      timeoutRecirculacion = millis();
-      //RECIRCULACION = true;
-    }
-    if (millis() - timeoutRecirculacion > RECIRCULACION_TIME)
-    {
-      RECIRCULACION = false;
-    }
-
-    if (CMD_VACIAR_AGUA && !tanqueVacio)
-    {
+      CMD_VACIAR_AGUA = false;
       if (!vaciarTanque())
       {
         //Algo falló. Alertar
@@ -623,8 +633,28 @@ void loop()
       else
       {
         generarAlerta("ALT_VACIADO_REALIZADO");
+        CMD_SISTEMA_ENCENDIDO = false;
       }
     }
+  /********************* SISTEMA ENCENDIDO *************************/
+
+  if (CMD_SISTEMA_ENCENDIDO)
+  {
+
+    if (RECIRCULACION) //Activo el modo de recirculacion de agua hasta la proxima medicion.
+    {
+      if(millis() - timeoutRecirculacion > RECIRCULACION_TIME)
+      {
+        RECIRCULACION = false;
+      }
+      
+    }else{
+      timeoutRecirculacion = millis();
+      RECIRCULACION = true;
+    }
+    
+    //CMD_VACIAR_AGUA = true;
+    //tanqueVacio = false;
 
     if (tanqueVacio) //
     {
@@ -700,7 +730,7 @@ void loop()
           generarAlerta("CMD_SUBIR_PH_OUT");
           apagarPHmas();
           //apagarPHmenos();
-          RECIRCULACION = true;
+          //RECIRCULACION = true;
         }
 
         if (CMD_BAJAR_PH)
@@ -711,7 +741,7 @@ void loop()
           generarAlerta("CMD_BAJAR_PH_OUT");
           apagarPHmenos();
           //apagarPHmas();
-          RECIRCULACION = true;
+          //RECIRCULACION = true;
         }
 
         if (!CMD_SUBIR_PH && !CMD_BAJAR_PH)
@@ -725,23 +755,17 @@ void loop()
         {
           generarAlerta("CMD_ADD_NUTRIENTE_A");
           generarAlerta("CMD_ADD_NUTRIENTE_B");
+          SERIAL_PRINT("Agregar Nutrientes", 0);
           encenderNutrientesA();
           encenderNutrientesB();
+          SERIAL_PRINT("BOMBAS Nutrientes ENCENDIDAS", 0);
           delay(TIEMPO_GOTEO_NUTRIENTES);
           apagarBombaNutrientesA();
           apagarBombaNutrientesB();
-          RECIRCULACION = true;
+          SERIAL_PRINT("BOMBAS Nutrientes APAGADAS", 0);
+          //RECIRCULACION = true;
         }
-        /*SERIAL_PRINT("CMD-ADD-B", CMD_ADD_NUTRIENTE_B);
-      if (CMD_ADD_NUTRIENTE_B)
-      {
-        generarAlerta("CMD_ADD_NUTRIENTE_B");
-        encenderNutrientesB();
-        delay(TIEMPO_GOTEO_NUTRIENTES);
-        apagarBombaNutrientesB();
-        //apagarBombaNutrientesA();
-      }*/
-
+        SERIAL_PRINT("CHEQUEO NUTRIENTES TACHOS", 0);
         if (!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B)
         {
           generarAlerta("!CMD_ADD_NUTRIENTE_A && !CMD_ADD_NUTRIENTE_B");
@@ -776,7 +800,7 @@ void loop()
               encenderBombaPrincipal();
             }
           }
-          RECIRCULACION = TRUE;
+          //RECIRCULACION = true;
         }
       }
     }
@@ -1612,17 +1636,20 @@ bool vaciarTanque()
   ERR_SALIDA_AGUA_DESCARTE = false;
   ALT_VACIADO_REALIZADO = false;
   bool error = false;
+  apagarTodo(true,2000);
   encenderBombaVaciado();
   float nivel = medirNivel("medicionNivelTanquePrincial");
   float nivelAux = 0;
   int intentos = 0;
-  while (!nivelTanque("tanqueVacio") || error)
+  while (!nivelTanque("tanqueVacio") && !error)
   {
-    delay(TIEMPO_LECTURA_NIVEL);
+    delay(TIEMPO_LECTURA_NIVEL*2);
     nivelAux = medirNivel("medicionNivelTanquePrincial");
-    if (nivel > nivelAux)
+    SERIAL_PRINT("INGRESO AL VACIADO", "");
+    if (nivel < nivelAux)
     {
       nivel = nivelAux;
+      intentos = 0;
     }
     else
     {
@@ -1633,6 +1660,7 @@ bool vaciarTanque()
       error = true;
       ERR_SALIDA_AGUA_DESCARTE = true;
     }
+    SERIAL_PRINT("INGRESO AL LLENADO ::: INTENTO ", intentos);
   }
   apagarBombaVaciado();
   if (!error)
@@ -1661,15 +1689,15 @@ bool llenarTanque(bool vacio)
 
   //SERIAL_PRINT("NIVEL ", nivel);
 
-  bool level = nivelTanque("tanqueLleno");
+  //bool level = ;
   //SERIAL_PRINT("aaaa ", aaaa);
   //SERIAL_PRINT("error ", error);
 
-  while (!level && !error)
+  while (!nivelTanque("tanqueLleno") && !error)
   {
-    //SERIAL_PRINT("INGRESO AL LLENADO", "");
+    SERIAL_PRINT("INGRESO AL LLENADO", "");
 
-    delay(TIEMPO_LECTURA_NIVEL);
+    delay(TIEMPO_LECTURA_NIVEL*2);
     nivelAux = medirNivel("medicionNivelTanquePrincial");
 
     //SERIAL_PRINT("NIVEL AUX ", nivelAux);
@@ -1682,18 +1710,23 @@ bool llenarTanque(bool vacio)
     if (nivel > nivelAux)
     {
       nivel = nivelAux;
+      intentos = 0;
     }
     else
     {
       intentos++;
     }
-    if (intentos == CANTIDAD_INTENTOS)
+    if (intentos >= CANTIDAD_INTENTOS)
     {
       error = true;
       ERR_INGRESO_AGUA_LIMPIA = true;
     }
+    SERIAL_PRINT("INGRESO AL LLENADO ::: INTENTO ", intentos);
   }
+
+  SERIAL_PRINT("APAGAR LLENADO", "");
   apagarLlenado();
+  SERIAL_PRINT("LLENADO APAGADO", "");
 
   if (vacio && !error)
   {
@@ -1839,6 +1872,13 @@ int disarmPayLoad(const char *payLoad, int length, char *data)
     //if (cmd == 6) {  // unico comando proveniente desde la raspberry con datos;
     memcpy(data, payLoad + 3, (length - 2) * sizeof(char));
     data[length - 2] = '\0';
+    // check json 
+    if(data[length - 4] == '"'){
+      data[length - 3] = '}';
+    }
+    SERIAL_PRINT("\n> DATA PAYLOAD DISARM", data);
+    SERIAL_PRINT("\n> DATA PAYLOAD DISARM LAST CHAR", data[length - 4]);
+    SERIAL_PRINT("\n> DATA LENGHT PAYLOAD DISARM", length);
     // }
     return cmd;
   }
@@ -1862,6 +1902,7 @@ int proccesPackage(String package, int length, char *data)
     {
       SERIAL_PRINT("> Command: ", command);
       SERIAL_PRINT("> Data: ", data);
+      SERIAL_PRINT("> Data Lenght: ", sizeof(data));
       return command;
     }
     else
@@ -1894,6 +1935,8 @@ bool checkPackageComplete(const char *com)
   {
     StaticJsonBuffer<100> jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject(data);
+    Serial.print("********* JSON **********");
+    root.printTo(Serial);
     if (0 < retCmd && 16 > retCmd)
     {
       if (strcmp(com, root["OK"]) != 0)
@@ -1918,8 +1961,8 @@ bool checkPackageComplete(const char *com)
       SERIAL_PRINT("HorasLuz ", hsLuzParametro);
       break;
     case 17:
-      horaInicioLuz = root["HoraIniLuz"];
-      SERIAL_PRINT("HoraIniLuz", horaInicioLuz);
+      horaInicioLuz = root["HoraInicioLuz"];
+      SERIAL_PRINT("HoraInicioLuz", horaInicioLuz);
       break;
     case 18:
       PhParametro = root["pHaceptable"];
